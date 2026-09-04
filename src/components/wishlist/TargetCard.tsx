@@ -3,6 +3,7 @@ import type { TargetPlan } from '@/types'
 import { CharacterArt } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge, PredictionChip } from '@/components/ui/status'
+import { formatChance } from '@/lib/format'
 
 /**
  * A piece of a celestial collection rather than a data row.
@@ -76,14 +77,17 @@ export function TargetCard({ plan, onOpen, onMoveUp, onMoveDown, index = 0 }: Pr
       <div className="rule" />
 
       <footer className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex flex-wrap items-baseline gap-x-1.5">
           <span className="num text-[15px] text-moon">{plan.reserved}</span>
-          <span className="text-[11.5px] text-moon-dim">
-            of {plan.cost.worstCase} reserved
+          <span className="text-[11.5px] text-moon-dim">of {plan.plannedCost} set aside</span>
+          <span className="text-[11.5px] text-moon-faint">·</span>
+          <span
+            className="num text-[12px]"
+            style={{ color: plan.successChance >= 0.9995 ? 'var(--success)' : 'var(--moon-muted)' }}
+          >
+            {formatChance(plan.successChance)}
           </span>
-          {plan.shortfall > 0 && (
-            <span className="text-[11.5px] text-danger">· {plan.shortfall} short</span>
-          )}
+          <span className="text-[11.5px] text-moon-dim">chance</span>
         </div>
 
         {(onMoveUp || onMoveDown) && (

@@ -10,6 +10,7 @@ import { AFFORDABILITY_MEANING } from '@/engine/planning'
 import { confidenceDescription, confidenceLabel, phaseLabel } from '@/engine/predictions'
 import { elementLabel } from '@/lib/assets'
 import { formatDay } from '@/lib/date'
+import { formatChance } from '@/lib/format'
 import type { BannerPhase, Priority, PullRule, PullRuleKind, TargetPlan } from '@/types'
 
 /** Selectable reasons. Kept short and human — these are notes to your future self. */
@@ -100,15 +101,21 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
                 {plan.balanceAtBanner}
               </p>
               <p className="mt-1 text-[12px] text-moon-dim">
-                <RangeValue low={plan.balanceAtBannerLow} high={plan.balanceAtBannerHigh} /> wishes
+                <RangeValue low={plan.balanceAtBannerLow} high={plan.balanceAtBannerHigh} /> wishes ·{' '}
+                {formatDay(prediction.date)}
               </p>
             </div>
             <div className="text-right">
-              <p className="eyebrow">Worst case needs</p>
-              <p className="num mt-1.5 font-display text-[34px] leading-none text-moon-muted">
-                {cost.worstCase}
+              <p className="eyebrow">Chance of C{target.constellationTarget}</p>
+              <p
+                className="num mt-1.5 text-[34px] leading-none"
+                style={{ color: plan.successChance >= 0.9995 ? 'var(--success)' : 'var(--moon-muted)' }}
+              >
+                {formatChance(plan.successChance)}
               </p>
-              <p className="mt-1 text-[12px] text-moon-dim">{formatDay(prediction.date)}</p>
+              <p className="mt-1 text-[12px] text-moon-dim">
+                with {plan.reserved} set aside
+              </p>
             </div>
           </div>
 
@@ -116,7 +123,18 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
             {AFFORDABILITY_MEANING[plan.status]}
           </p>
 
-          {plan.reserved < cost.worstCase && (
+          {/* At full certainty the planned figure *is* the guarantee; saying both
+              would only repeat the same number back. */}
+          {plan.targetConfidence < 1 && (
+            <p className="mt-2.5 text-[12.5px] leading-relaxed text-moon-dim">
+              As a {PRIORITY_LABEL[target.priority]} this is planned to{' '}
+              {Math.round(plan.targetConfidence * 100)}% certainty —{' '}
+              <span className="num text-moon-muted">{plan.plannedCost}</span> wishes. A full guarantee regardless of
+              luck would need <span className="num text-moon-muted">{cost.worstCase}</span>.
+            </p>
+          )}
+
+          {plan.reserved < plan.plannedCost && (
             <p className="mt-2.5 text-[12.5px] leading-relaxed text-moon-dim">
               Of that forecast, <span className="num text-moon-muted">{plan.reserved}</span> is actually set aside
               here — the rest is already committed to higher-priority targets.
@@ -138,9 +156,15 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
                 C{target.constellationTarget}. That number never depends on luck.
               </p>
               <p className="mt-2">
-                The estimates do: roughly {cost.median} wishes on a median run and {cost.likely} on three runs in
-                four. Those are approximations of a probability curve HoYoverse has never fully published, so
-                Lunavota keeps them separate from anything it calls guaranteed.
+                Because this target is a {PRIORITY_LABEL[target.priority]}, the plan aims for{' '}
+                {Math.round(plan.targetConfidence * 100)}% certainty, or {plan.plannedCost} wishes. With the{' '}
+                {plan.reserved} actually set aside, the chance of reaching C{target.constellationTarget} is about{' '}
+                {formatChance(plan.successChance)}.
+              </p>
+              <p className="mt-2">
+                Those odds approximate a probability curve HoYoverse has never fully published, so Lunavota keeps
+                them separate from anything it calls guaranteed. Half the time the 50/50 falls your way and the cost
+                stops near 80; past that it climbs steeply toward the 180 ceiling.
               </p>
               {plan.incomeDuringBanner > 0 && (
                 <p className="mt-2">

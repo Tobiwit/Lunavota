@@ -67,9 +67,37 @@ explicitly conditional and *Luxury* is explicitly for spare resources, so neithe
 is allowed to drive "safe to spend" toward zero — they are still costed, still
 graded, but they draw on projected income instead.
 
-Planning mode picks the cost tier and which edge of the income band a decision may
-lean on: Safe reserves the worst case against low-end income, Balanced the 75th
-percentile against expected income, Risky the median against the high end.
+Priority decides how certain the plan insists on being; mode decides how hard it
+works below a Must. `TARGET_CONFIDENCE` maps the two onto a percentile of the cost
+distribution, and mode also picks which edge of the income band a decision may
+lean on.
+
+For a C0 limited 5★ from zero pity those percentiles land at:
+
+| Certainty | Wishes | |
+|---|---:|---|
+| 0.50 | 80 | the 50/50 went your way |
+| 0.80 | 150 | Balanced funds a Want here |
+| 0.90 | 155 | |
+| 1.00 | 180 | deterministic — Musts are planned here |
+
+The curve is deliberately not linear: half the time the 50/50 is won and the cost
+stops near 80, after which the second 5★ pushes everything toward the 180 ceiling,
+so the tiers between 150 and 180 buy very little. A Must is planned to the full
+guarantee in every mode but Risky, because that is what "I would strongly regret
+missing them" has to mean.
+
+Cards show what this buys — **set aside**, **needs**, and the resulting **chance** —
+rather than the banner-timing confidence, which is a different question and is
+carried by the probability ring around each portrait.
+
+### Timeline density
+
+A version's own content — dailies, Welkin, Battle Pass, events, quests,
+exploration, codes, misc — is not a moment anyone acts on, so it folds into the
+version header and opens on tap. What keeps its own node is what you plan around:
+Spiral Abyss, Imaginarium Theater, Stygian Onslaught, shop resets and one-off
+gifts.
 
 ### Forecasting
 

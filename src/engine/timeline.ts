@@ -1,5 +1,5 @@
 import type { Budget, ForecastCurve, ForecastPoint, GameVersion, IncomeKind, TargetPlan } from '@/types'
-import { addDays, daysBetween, formatRange, today } from '@/lib/date'
+import { addDays, daysBetween, today } from '@/lib/date'
 import { FORECAST_HORIZON_DAYS } from '@/data/config'
 
 /**
@@ -47,8 +47,26 @@ const KIND_SORT: Record<TimelineNodeKind, number> = {
   today: 0, version: 1, phase: 2, banner: 3, group: 4, reward: 5,
 }
 
-/** Income kinds that accrue continuously and would otherwise flood the timeline. */
-const CONTINUOUS: IncomeKind[] = ['dailies', 'welkin', 'exploration']
+/**
+ * Income that belongs to a version's own content.
+ *
+ * None of it is a moment the player acts on - dailies, quests, events, codes and
+ * exploration simply accrue while the version runs. Listing each one as its own
+ * node buries the things that *are* decisions, so it all folds into the version
+ * header and opens on tap.
+ */
+const VERSION_CONTENT: IncomeKind[] = [
+  'dailies', 'welkin', 'battle-pass', 'events', 'quests',
+  'exploration', 'maintenance-codes', 'misc',
+]
+
+/**
+ * Everything else keeps its own node: recurring resets and one-off gifts are
+ * dated events you plan around, not background accrual.
+ */
+function isVersionContent(kind: IncomeKind): boolean {
+  return VERSION_CONTENT.includes(kind)
+}
 
 export interface TimelineInput {
   now?: string
@@ -78,10 +96,31 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
   const inRange = (d: string) => d >= past && d <= horizon
   const visibleVersions = versions.filter((v) => v.endDate >= past && v.startDate <= horizon)
 
+  const content = curve.points.filter((p) => isVersionContent(p.kind))
+  const standalone = curve.points.filter((p) => !isVersionContent(p.kind))
+
   // -- Level 1: versions ------------------------------------------------
   for (const v of visibleVersions) {
     if (!inRange(v.startDate)) continue
     const income = Math.max(0, curve.balanceAt(v.endDate) - curve.balanceAt(v.startDate < now ? now : v.startDate))
+
+    // Fold the version's own content into its header, prorated to the part of
+    // the version that is still ahead.
+    const from = v.startDate < now ? now : v.startDate
+    const to = v.endDate > horizon ? horizon : v.endDate
+    // Prorated copies, so the listed figures sum to the header total.
+    const breakdown =
+      to < from
+        ? []
+        : contentWithin(content, from, to).map((p) => ({
+            ...p,
+            amount: prorate(p, from, to),
+            low: prorate({ ...p, amount: p.low }, from, to),
+            high: prorate({ ...p, amount: p.high }, from, to),
+            date: p.date < from ? from : p.date,
+            endDate: p.endDate ? (p.endDate > to ? to : p.endDate) : undefined,
+          }))
+
     push({
       id: `version-${v.id}`,
       kind: 'version',
@@ -93,6 +132,8 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
       versionId: v.id,
       version: v,
       versionIncome: income,
+      amount: breakdown.reduce((sum, p) => sum + p.amount, 0),
+      breakdown,
     })
 
     // -- Level 3: phase change -----------------------------------------
@@ -126,67 +167,24 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
     })
   }
 
-  // -- Level 4: rewards --------------------------------------------------
-  const continuous = curve.points.filter((p) => CONTINUOUS.includes(p.kind))
-  const discrete = curve.points.filter((p) => !CONTINUOUS.includes(p.kind))
-
-  // Continuous income is grouped per version so the timeline reads as
-  // "Sep 5-18 · Daily activity · +14" rather than fourteen identical nodes.
-  for (const v of visibleVersions) {
-    const from = v.startDate < now ? now : v.startDate
-    if (from > horizon) continue
-    const to = v.endDate > horizon ? horizon : v.endDate
-    if (to < from) continue
-
-    const overlapping = continuous.filter((p) => {
-      const pStart = p.date
-      const pEnd = p.endDate ?? p.date
-      return pEnd >= from && pStart <= to
-    })
-    if (overlapping.length === 0) continue
-
-    const amount = overlapping.reduce((sum, p) => sum + prorate(p, from, to), 0)
-    if (amount < 0.5) continue
-
-    push({
-      id: `group-${v.id}-continuous`,
-      kind: 'group',
-      date: from,
-      endDate: to,
-      title: 'Daily activity',
-      subtitle: formatRange(from, to),
-      amount,
-      showBalance: false,
-      versionId: v.id,
-      breakdown: overlapping,
-    })
-  }
-
-  // Discrete rewards, merged when several land on the same day.
-  const byDate = new Map<string, ForecastPoint[]>()
-  for (const p of discrete) {
+  // -- Level 4: standalone rewards ---------------------------------------
+  // One node each. These are the resets a player actually plans around, so
+  // collapsing four of them into "Spiral Abyss +3 more" hides the useful part -
+  // and with version content folded away there is room for them.
+  for (const p of standalone) {
     if (!inRange(p.date)) continue
-    const list = byDate.get(p.date) ?? []
-    list.push(p)
-    byDate.set(p.date, list)
-  }
-
-  for (const [date, list] of byDate) {
-    const total = list.reduce((s, p) => s + p.amount, 0)
-    if (total < 0.5) continue
-    const primary = list.slice().sort((a, b) => b.amount - a.amount)[0]
-    const title = list.length === 1 ? primary.label : `${primary.label} +${list.length - 1} more`
+    if (p.amount < 0.5) continue
     push({
-      id: `reward-${date}`,
+      id: `reward-${p.id}`,
       kind: 'reward',
-      date,
-      title,
-      subtitle: list.length === 1 ? primary.detail : undefined,
-      amount: total,
+      date: p.date,
+      title: p.label,
+      subtitle: p.detail,
+      amount: p.amount,
       showBalance: false,
-      incomeKind: primary.kind,
-      versionId: primary.versionId,
-      breakdown: list,
+      incomeKind: p.kind,
+      versionId: p.versionId,
+      breakdown: [p],
     })
   }
 
@@ -204,6 +202,13 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1
     return KIND_SORT[a.kind] - KIND_SORT[b.kind]
   })
+}
+
+/** Version-content points overlapping a window, ordered by date. */
+function contentWithin(points: ForecastPoint[], from: string, to: string): ForecastPoint[] {
+  return points
+    .filter((p) => (p.endDate ?? p.date) >= from && p.date <= to)
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
 function prorate(point: ForecastPoint, from: string, to: string): number {

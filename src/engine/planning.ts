@@ -45,6 +45,33 @@ const PRIORITY_RANK: Record<Priority, number> = {
 }
 
 /**
+ * How certain the plan insists on being, by priority and mode.
+ *
+ * 1 means the deterministic worst case - a target planned to 1 does not depend
+ * on luck at all. Anything lower is an estimate drawn from the soft-pity curve.
+ *
+ * A Must target is guaranteed outright in every mode but Risky, because that is
+ * what "I would strongly regret missing them" has to mean. The planning mode
+ * mostly decides how hard the plan works for everything below that.
+ */
+export const TARGET_CONFIDENCE: Record<PlanningMode, Record<Priority, number>> = {
+  safe: { must: 1, want: 1, interested: 0.8, luxury: 0.5 },
+  balanced: { must: 1, want: 0.8, interested: 0.5, luxury: 0.5 },
+  risky: { must: 0.9, want: 0.5, interested: 0.5, luxury: 0.5 },
+}
+
+/**
+ * For a C0 limited 5-star from zero pity these land at roughly:
+ *
+ *   0.50 ->  80 wishes      0.80 -> 150 wishes
+ *   0.90 -> 155 wishes      1.00 -> 180 (deterministic)
+ *
+ * The curve is deliberately not linear. Half the time the 50/50 is won and the
+ * cost stops near 80; past that, the second 5-star pushes everything toward the
+ * 180 ceiling, so the tiers between 150 and 180 buy very little.
+ */
+
+/**
  * Which priorities are allowed to hold back wishes the player already has.
  *
  * "Interested" is explicitly conditional and "Luxury" is explicitly for spare
@@ -75,7 +102,7 @@ interface IncomeSegment {
 /* Cost                                                                */
 /* ------------------------------------------------------------------ */
 
-export function costFor(target: WishTarget, state: BannerState): TargetCost {
+export function costFor(target: WishTarget, state: BannerState, confidence = 1): TargetCost {
   const copies = Math.max(1, target.constellationTarget + 1)
   const rule = target.pullRule?.kind
 
@@ -94,6 +121,10 @@ export function costFor(target: WishTarget, state: BannerState): TargetCost {
   let median = quantile(dist, 0.5)
   let expected = meanOf(dist)
 
+  // At full confidence the plan uses the deterministic worst case rather than a
+  // 100th-percentile estimate, so the number never rests on the modelled curve.
+  let planned = confidence >= 1 ? worst : Math.min(worst, quantile(dist, confidence))
+
   // Hard caps shrink every tier - you simply stop spending.
   const caps: number[] = []
   if (target.maxPulls && target.maxPulls > 0) caps.push(target.maxPulls)
@@ -104,9 +135,8 @@ export function costFor(target: WishTarget, state: BannerState): TargetCost {
     likely = Math.min(likely, cap)
     median = Math.min(median, cap)
     expected = Math.min(expected, cap)
+    planned = Math.min(planned, cap)
   }
-
-  const planned = target.lockedReservation ?? worst
 
   return {
     worstCase: Math.round(worst),
@@ -115,14 +145,6 @@ export function costFor(target: WishTarget, state: BannerState): TargetCost {
     expected: Math.round(expected),
     planned: Math.round(planned),
   }
-}
-
-/** The cost tier a planning mode reserves against. */
-export function plannedCostFor(cost: TargetCost, mode: PlanningMode, locked?: number): number {
-  if (locked != null) return locked
-  if (mode === 'safe') return cost.worstCase
-  if (mode === 'balanced') return cost.likely
-  return cost.median
 }
 
 /* ------------------------------------------------------------------ */
@@ -167,7 +189,7 @@ export function buildPlan(input: PlanningInput): Budget {
     capturingRadianceState: user.capturingRadianceState ?? 0,
   }
   for (const { target } of chronological) {
-    costs.set(target.id, costFor(target, state))
+    costs.set(target.id, costFor(target, state, TARGET_CONFIDENCE[mode][target.priority]))
     state = { pity: 0, guaranteed: false, capturingRadianceState: 0 }
   }
 
@@ -191,7 +213,7 @@ export function buildPlan(input: PlanningInput): Budget {
   for (const { target, prediction } of byPriority) {
     const character = characters.get(target.characterId)!
     const cost = costs.get(target.id)!
-    const need = plannedCostFor(cost, mode, target.lockedReservation)
+    const need = target.lockedReservation ?? cost.planned
     cumulativeNeed += need
 
     // A banner already underway is treated as happening now, not in the past.
@@ -233,6 +255,8 @@ export function buildPlan(input: PlanningInput): Budget {
       target,
       character,
       cost,
+      plannedCost: need,
+      targetConfidence: TARGET_CONFIDENCE[mode][target.priority],
       reservedFromPool: fromPool,
       reservedFromIncome: fromIncome,
       reserved: allocated,
@@ -361,9 +385,9 @@ export const PLANNING_MODE_LABEL: Record<PlanningMode, string> = {
 }
 
 export const PLANNING_MODE_DESCRIPTION: Record<PlanningMode, string> = {
-  safe: 'Protect enough wishes for the worst case, and plan income conservatively.',
-  balanced: 'Use probability estimates, but keep a safety buffer.',
-  risky: 'Plan around the outcome you would typically expect.',
+  safe: 'Guarantee your Must and Want targets outright, and plan income at the low end.',
+  balanced: 'Guarantee your Must targets. Fund Wants for about three runs in four.',
+  risky: 'Plan around the outcome you would typically expect, and spend the difference.',
 }
 
 /** Wish resources restated as the plain number the Moon screen leads with. */

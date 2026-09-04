@@ -187,10 +187,19 @@ export function OnboardingScreen() {
                   </div>
 
                   <Why label="What actually changes?">
-                    Safe reserves the wishes a worst-case run would need — 180 for a character you have no guarantee
-                    on — and plans income at the low end of its range. Balanced reserves what covers three runs in
-                    four. Risky reserves the median. None of them change the game; they change how much Lunavota is
-                    willing to call free.
+                    <p>
+                      Priority decides how certain the plan insists on being, and the mode decides how hard it works
+                      for everything below a Must.
+                    </p>
+                    <p className="mt-2">
+                      Safe guarantees your Must <em>and</em> Want targets outright — the 180 wishes a worst-case run
+                      needs — and plans income at the low end of its range. Balanced still guarantees Musts, and funds
+                      Wants to around 150, which covers roughly four runs in five. Risky plans on what typically
+                      happens.
+                    </p>
+                    <p className="mt-2">
+                      None of them change the game. They change how much Lunavota is willing to call free.
+                    </p>
                   </Why>
                 </div>
               )}

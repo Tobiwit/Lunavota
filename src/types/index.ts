@@ -274,7 +274,7 @@ export interface TargetCost {
   median: number
   /** Mean number of wishes. */
   expected: number
-  /** Cost used for reservation under the active planning mode. */
+  /** Cost at the certainty this target is planned to. */
   planned: number
 }
 
@@ -308,6 +308,10 @@ export interface TargetPlan {
   target: WishTarget
   character: Character
   cost: TargetCost
+  /** What the plan aims to set aside, after caps and any pinned reservation. */
+  plannedCost: number
+  /** The certainty this priority is planned to, under the active mode. 0..1. */
+  targetConfidence: number
   /** Wishes this target locks out of today's pool. */
   reservedFromPool: number
   /** Wishes this target expects to draw from future income. */

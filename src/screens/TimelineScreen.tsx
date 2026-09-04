@@ -39,6 +39,8 @@ export function TimelineScreen() {
       setTargetDetail(node.plan)
       return
     }
+    // Versions expand in place; only standalone rewards open a sheet.
+    if (node.kind === 'version') return
     setDetailNode(node)
   }
 

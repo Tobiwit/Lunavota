@@ -18,6 +18,7 @@ import { versionIncomeSummary } from '@/engine/forecast'
 import { PLANNING_MODE_LABEL } from '@/engine/planning'
 import { HARD_PITY } from '@/engine/wish'
 import { daysBetween, formatDay, relativeDays, today } from '@/lib/date'
+import { formatChance } from '@/lib/format'
 import type { Budget, PlanningMode, TargetPlan } from '@/types'
 
 export function MoonScreen() {
@@ -215,10 +216,13 @@ export function MoonScreen() {
                   <PredictionChip prediction={next.prediction} />
                 </div>
 
-                <div className="mt-3.5 flex items-baseline gap-2">
+                <div className="mt-3.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                   <AffordabilityBadge status={next.status} />
                   <span className="text-[12px] text-moon-dim">
-                    · {next.reserved} of {next.cost.worstCase} reserved
+                    · {next.reserved} of {next.plannedCost} set aside
+                  </span>
+                  <span className="text-[12px] text-moon-dim">
+                    · <span className="num text-moon-muted">{formatChance(next.successChance)}</span> chance
                   </span>
                 </div>
               </div>
@@ -384,9 +388,10 @@ function spendSentence(budget: Budget, mode: PlanningMode): string {
 
   const holder = budget.plans.find((p) => p.reservedFromPool > 0)
   if (free === 0) {
-    const short = holder ? Math.max(0, holder.cost.worstCase - holder.reserved) : 0
+    // Measured against the plan's own target, so it agrees with every card.
+    const short = holder ? Math.max(0, holder.plannedCost - holder.reserved) : 0
     if (holder && short > 0) {
-      return `Every wish you hold is spoken for. You are ${short} short of guaranteeing ${holder.character.displayName}.`
+      return `Every wish you hold is spoken for, and ${holder.character.displayName} is still ${short} short of plan.`
     }
     return `Every wish you hold is reserved${holder ? ` for ${holder.character.displayName}` : ''}.`
   }
@@ -404,7 +409,7 @@ function fundingSentence(plan: TargetPlan, now: string): string {
     return `You are fully funded. Even the worst possible run reaches ${name} at C${plan.target.constellationTarget}.`
   }
 
-  const short = Math.max(0, plan.cost.worstCase - plan.reserved)
+  const short = Math.max(0, plan.plannedCost - plan.reserved)
   if (plan.fundedDate && plan.prediction?.date) {
     const gap = daysBetween(plan.fundedDate, plan.prediction.date)
     if (gap >= 0) {

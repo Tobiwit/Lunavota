@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import clsx from 'clsx'
 import type { TimelineNode } from '@/engine/timeline'
 import { CharacterArt } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge } from '@/components/ui/status'
 import { formatDay, formatRange } from '@/lib/date'
+import { formatChance } from '@/lib/format'
 
 /**
  * One continuous Fate Thread runs down the page. Versions are celestial
@@ -98,7 +100,11 @@ function TodayRow({ node }: { node: TimelineNode }) {
 }
 
 function VersionRow({ node }: { node: TimelineNode }) {
+  const [open, setOpen] = useState(false)
   const v = node.version
+  const breakdown = node.breakdown ?? []
+  const content = node.amount ?? 0
+
   return (
     <div className="relative pb-4 pt-8">
       <Glyph kind="version" />
@@ -118,6 +124,42 @@ function VersionRow({ node }: { node: TimelineNode }) {
             Expected during this version{' '}
             <span className="num text-moon-muted">+{Math.round(node.versionIncome)}</span> wishes
           </p>
+        )}
+
+        {/* The version's own content lives here rather than as a dozen nodes. */}
+        {content >= 0.5 && breakdown.length > 0 && (
+          <div className="mt-2.5">
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              className="inline-flex items-center gap-1.5 text-[12.5px] text-frost/85 underline-offset-4 hover:underline"
+            >
+              <span className="num">+{Math.round(content)}</span>
+              from version content
+              <span aria-hidden className={clsx('text-[10px] transition-transform', open && 'rotate-180')}>
+                ▾
+              </span>
+            </button>
+
+            {open && (
+              <ul className="rise mt-2.5 space-y-1.5 border-l border-[var(--hairline)] pl-3">
+                {breakdown.map((p) => (
+                  <li key={p.id} className="flex items-baseline justify-between gap-3 text-[12px]">
+                    <span className="min-w-0">
+                      <span className="block truncate text-moon-muted">{p.label}</span>
+                      <span className="block text-[10.5px] text-moon-faint">
+                        {p.endDate && p.endDate !== p.date
+                          ? formatRange(p.date, p.endDate)
+                          : formatDay(p.date)}
+                      </span>
+                    </span>
+                    <span className="num shrink-0 text-moon-dim">+{p.amount.toFixed(1)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -201,26 +243,31 @@ function BannerRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Time
                 </span>
               </span>
               <span className="text-[11px] text-moon-dim">C{plan.target.constellationTarget}</span>
-              {plan.prediction && !plan.prediction.isUserOverride && (
-                <span className="num text-[11px] text-moon-faint">
-                  {Math.round(plan.prediction.confidence * 100)}% confidence
-                </span>
-              )}
             </div>
           </div>
           <AffordabilityBadge status={plan.status} showLabel={false} className="mt-1 shrink-0" />
         </div>
 
-        {/* Set aside, not gross balance: the status below is graded on what the
-            plan can actually commit once higher priorities have taken theirs. */}
-        <div className="mt-3 flex items-end justify-between gap-3">
+        {/* Set aside, not gross balance: what the plan can actually commit once
+            higher priorities have taken theirs — and what that buys in odds. */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
           <div>
-            <p className="eyebrow">Set aside</p>
-            <p className="num mt-1 text-[24px] leading-none text-moon">{plan.reserved}</p>
+            {/* Tighter than the standard eyebrow: three columns at 375px. */}
+            <p className="eyebrow !tracking-[0.07em]">Set aside</p>
+            <p className="num mt-1 text-[22px] leading-none text-moon">{plan.reserved}</p>
+          </div>
+          <div>
+            <p className="eyebrow !tracking-[0.07em]">Needs</p>
+            <p className="num mt-1 text-[22px] leading-none text-moon-dim">{plan.plannedCost}</p>
           </div>
           <div className="text-right">
-            <p className="eyebrow">Needs</p>
-            <p className="num mt-1 text-[24px] leading-none text-moon-dim">{plan.cost.worstCase}</p>
+            <p className="eyebrow !tracking-[0.07em]">Chance</p>
+            <p
+              className="num mt-1 text-[22px] leading-none"
+              style={{ color: plan.successChance >= 0.9995 ? 'var(--success)' : 'var(--moon)' }}
+            >
+              {formatChance(plan.successChance)}
+            </p>
           </div>
         </div>
 
@@ -332,7 +379,7 @@ function Balance({ value }: { value: number }) {
 }
 
 function bannerSentence(plan: NonNullable<TimelineNode['plan']>): string {
-  const short = Math.max(0, plan.cost.worstCase - plan.reserved)
+  const short = Math.max(0, plan.plannedCost - plan.reserved)
 
   if (plan.status === 'guaranteed') {
     return 'Fully funded by the time this opens, even on the worst possible run.'
@@ -340,11 +387,12 @@ function bannerSentence(plan: NonNullable<TimelineNode['plan']>): string {
   if (plan.fundedDate && plan.prediction?.endDate && plan.fundedDate <= plan.prediction.endDate) {
     return `${short} short at the start — you should reach a guarantee around ${formatDay(plan.fundedDate)}, during the banner.`
   }
-  if (plan.status === 'likely') {
-    return `Well funded on an ordinary run, ${short} short of a certainty.`
+  const toGuarantee = Math.max(0, plan.cost.worstCase - plan.reserved)
+  if (short === 0) {
+    return `Funded to plan. ${toGuarantee} more would make it certain regardless of luck.`
   }
-  if (plan.status === 'at-risk') {
-    return `${short} short of a guarantee. A bad run here would cost you something else.`
+  if (plan.status === 'unfunded') {
+    return `Higher-priority targets claim these wishes first, leaving this ${short} short of plan.`
   }
-  return `Higher-priority targets claim these wishes first, leaving this ${short} short.`
+  return `${short} short of plan, and ${toGuarantee} short of a guarantee.`
 }
