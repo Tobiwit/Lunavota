@@ -1,0 +1,335 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --night-950: #06080f;
+    --night-900: #0b0f1c;
+    --night-850: #101627;
+    --night-800: #151b2d;
+    --night-700: #1e2740;
+
+    --moon: #eef4fa;
+    --moon-muted: #b7c4d6;
+    --moon-dim: #8492a8;
+    --moon-faint: #4f5b73;
+
+    --frost: #a9d5e8;
+    --lunar-blue: #84acc9;
+    --lunar-violet: #aaa0d4;
+    --radiance: #d4a8cb;
+    --star-gold: #d9c48d;
+    --danger: #c78991;
+    --success: #a9cdbd;
+
+    --hairline: rgba(169, 213, 232, 0.14);
+    --hairline-strong: rgba(169, 213, 232, 0.26);
+    --veil: rgba(12, 17, 31, 0.62);
+
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--night-950);
+  }
+
+  body {
+    @apply bg-night-950 font-sans text-moon antialiased;
+    margin: 0;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* The app is a fixed-shell native-feeling surface; scrolling happens inside panes. */
+  #root {
+    min-height: 100dvh;
+    isolation: isolate;
+  }
+
+  ::selection {
+    background: rgba(169, 213, 232, 0.24);
+    color: var(--moon);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--frost);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] { -moz-appearance: textfield; }
+}
+
+@layer components {
+  /* ---- Surfaces -------------------------------------------------------- */
+  .panel {
+    background: linear-gradient(
+      180deg,
+      rgba(21, 27, 45, 0.72) 0%,
+      rgba(11, 15, 28, 0.62) 100%
+    );
+    border: 1px solid var(--hairline);
+    border-radius: 20px;
+    backdrop-filter: blur(14px) saturate(115%);
+    -webkit-backdrop-filter: blur(14px) saturate(115%);
+  }
+
+  .panel-flat {
+    background: rgba(16, 22, 39, 0.55);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+  }
+
+  /* A hairline that fades at both ends, like light catching an edge. */
+  .rule {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--hairline-strong) 22%,
+      var(--hairline-strong) 78%,
+      transparent
+    );
+  }
+
+  .eyebrow {
+    @apply font-sans text-[11px] uppercase text-moon-dim;
+    letter-spacing: 0.22em;
+  }
+
+  /* Numbers always use the interface face: Marcellus renders 1 as a bare stem,
+     which is unreadable in the figures this app is built around. */
+  .num {
+    font-family: theme('fontFamily.sans');
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'cv01' 1;
+    letter-spacing: -0.015em;
+  }
+
+  /* ---- Controls -------------------------------------------------------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 text-[14px] font-medium;
+    min-height: 46px;
+    border: 1px solid var(--hairline-strong);
+    background: rgba(30, 39, 64, 0.5);
+    color: var(--moon);
+    transition: transform 180ms cubic-bezier(0.22, 0.8, 0.28, 1),
+      background 180ms ease, border-color 180ms ease;
+  }
+  .btn:active { transform: scale(0.975); }
+  .btn:disabled { opacity: 0.42; }
+
+  .btn-primary {
+    background: linear-gradient(180deg, rgba(169, 213, 232, 0.22), rgba(132, 172, 201, 0.12));
+    border-color: rgba(169, 213, 232, 0.42);
+    color: var(--moon);
+    box-shadow: 0 0 34px -16px rgba(169, 213, 232, 0.9);
+  }
+
+  .btn-quiet {
+    background: transparent;
+    border-color: var(--hairline);
+    color: var(--moon-muted);
+  }
+
+  .btn-danger {
+    background: transparent;
+    border-color: rgba(199, 137, 145, 0.34);
+    color: var(--danger);
+  }
+
+  .field {
+    @apply w-full rounded-xl px-4 text-[16px];
+    min-height: 48px;
+    background: rgba(8, 12, 22, 0.66);
+    border: 1px solid var(--hairline);
+    color: var(--moon);
+  }
+  .field::placeholder { color: var(--moon-faint); }
+  .field:focus { border-color: rgba(169, 213, 232, 0.44); outline: none; }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px];
+    border: 1px solid var(--hairline);
+    color: var(--moon-muted);
+    background: rgba(16, 22, 39, 0.5);
+  }
+  .chip-on {
+    border-color: rgba(169, 213, 232, 0.45);
+    color: var(--moon);
+    background: rgba(169, 213, 232, 0.12);
+  }
+
+  .scroll-pane {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+}
+
+@layer utilities {
+  .pt-safe { padding-top: var(--sat); }
+  .pb-safe { padding-bottom: var(--sab); }
+  .text-balance { text-wrap: balance; }
+  .grain {
+    background-image: var(--grain-url);
+    background-size: 220px 220px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---- Ambient keyframes ------------------------------------------------ */
+@keyframes breathe {
+  0%, 100% { opacity: 0.82; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.045); }
+}
+
+@keyframes driftA {
+  0%, 100% { transform: translate3d(-2%, 0, 0); }
+  50%      { transform: translate3d(6%, -2.5vh, 0); }
+}
+
+@keyframes driftB {
+  0%, 100% { transform: translate3d(4%, 0, 0); }
+  50%      { transform: translate3d(-5%, 3vh, 0); }
+}
+
+@keyframes shimmer {
+  0%   { opacity: 0.35; }
+  50%  { opacity: 0.8; }
+  100% { opacity: 0.35; }
+}
+
+@keyframes thread-pulse {
+  0%   { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -24; }
+}
+
+@keyframes ring-pulse {
+  0%   { transform: scale(1);    opacity: 0.7; }
+  70%  { transform: scale(1.14); opacity: 0; }
+  100% { transform: scale(1.14); opacity: 0; }
+}
+
+/* ---- Range input ------------------------------------------------------ */
+.lunar-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 30px;
+  background: transparent;
+  cursor: pointer;
+}
+.lunar-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--frost) 0%,
+    var(--frost) var(--pct, 50%),
+    rgba(169, 213, 232, 0.16) var(--pct, 50%),
+    rgba(169, 213, 232, 0.16) 100%
+  );
+}
+.lunar-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(169, 213, 232, 0.16);
+}
+.lunar-range::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--frost);
+}
+.lunar-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8.5px;
+  border-radius: 50%;
+  background: var(--moon);
+  border: 1px solid rgba(169, 213, 232, 0.8);
+  box-shadow: 0 0 16px rgba(169, 213, 232, 0.55);
+}
+.lunar-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--moon);
+  border: 1px solid rgba(169, 213, 232, 0.8);
+  box-shadow: 0 0 16px rgba(169, 213, 232, 0.55);
+}
+
+/* Emitted after the utilities layer so `.num` beats `font-display` wherever a
+   display heading contains a figure. Marcellus has no legible 1. */
+.num {
+  font-family: 'Inter var', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+}
+
+/* ---- Entrance motion --------------------------------------------------
+   Deliberately CSS rather than JS. A keyframe with `backwards` fill has the
+   element's *resting* state as its normal style, so an interrupted or never-
+   started animation still leaves the content visible. A JS-driven opacity
+   tween that gets cancelled mid-flight does not, and silently hiding content
+   is not a failure mode this app can have. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes draw-thread {
+  from { stroke-dashoffset: var(--thread-len, 200); }
+  to   { stroke-dashoffset: 0; }
+}
+
+.rise {
+  animation: rise 420ms cubic-bezier(0.22, 0.8, 0.28, 1) backwards;
+}
+.rise-slow { animation-duration: 620ms; }
+.rise-d1 { animation-delay: 80ms; }
+.rise-d2 { animation-delay: 160ms; }
+.rise-d3 { animation-delay: 240ms; }
+
+.slide-in {
+  animation: slide-in 280ms cubic-bezier(0.22, 0.8, 0.28, 1) backwards;
+}
+
+.draw {
+  stroke-dasharray: var(--thread-len, 200);
+  animation: draw-thread 900ms cubic-bezier(0.22, 0.8, 0.28, 1) backwards;
+}
