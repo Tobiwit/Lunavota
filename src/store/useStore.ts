@@ -17,12 +17,17 @@ import type {
 import { indexedDbAdapter } from './persistence'
 import { DEFAULT_INCOME_PROFILE, DEFAULT_RECURRING, type RecurringIncomeConfig } from '@/data/config'
 import { buildSeedCharacters, makePlaceholder } from '@/data/seedCharacters'
-import { buildSeedIncome, buildSeedVersions, recomputeVersionStatuses } from '@/data/seedVersions'
+import {
+  buildSeedIncome,
+  buildSeedVersions,
+  recomputeVersionStatuses,
+  seedNameForNumber,
+} from '@/data/seedVersions'
 import { buildSeedPredictions } from '@/data/seedPredictions'
 import { today } from '@/lib/date'
 import { addWishes, spendWishes } from '@/engine/simulation'
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 const DEFAULT_USER: UserWishState = {
   intertwinedFates: 0,
@@ -298,6 +303,21 @@ export const useStore = create<AppState>()(
       name: 'lunavota-state',
       version: SCHEMA_VERSION,
       storage: createJSONStorage(() => indexedDbAdapter),
+      migrate: (persisted, fromVersion) => {
+        const state = persisted as Partial<AppState> | undefined
+        // v2: 7.x is the Snezhnaya era, not a continuation of Luna. Only rows
+        // still carrying the old seeded name are corrected — anything an admin
+        // renamed is theirs to keep.
+        if (fromVersion < 2 && state?.versions) {
+          state.versions = state.versions.map((v) => {
+            const seeded = seedNameForNumber(v.number)
+            if (!seeded || seeded === v.name) return v
+            if (!v.name.startsWith('Luna ') || seeded.startsWith('Luna ')) return v
+            return { ...v, name: seeded }
+          })
+        }
+        return state as AppState
+      },
       onRehydrateStorage: () => (state) => {
         // Version status is a function of today's date, never of stored data.
         if (state) state.versions = recomputeVersionStatuses(state.versions)

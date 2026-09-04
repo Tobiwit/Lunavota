@@ -146,8 +146,11 @@ JSON export/import is in Settings. There is no account and no wall.
 ## Notes on the seed data
 
 The version schedule is a **scaffold**, not confirmed information: 42-day versions
-from a fixed anchor, named Luna I onward. Correct the dates in `/admin` and every
-forecast recalculates. The same applies to the recurring income constants.
+from a fixed anchor. Era naming restarts at each major version — Luna I–IX across
+6.0–6.8, then Snezhnaya I onward from 7.0 — so `ERAS` in `data/seedVersions.ts` is
+the one place to extend when the next era is announced. Correct the names and dates
+in `/admin` and every forecast recalculates. The same applies to the recurring
+income constants.
 
 ## Conventions
 

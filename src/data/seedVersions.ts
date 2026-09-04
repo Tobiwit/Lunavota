@@ -19,10 +19,55 @@ const ROMAN = [
   'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII',
 ]
 
-function versionNumberFor(index: number): string {
-  // Luna I..IX map onto 6.0..6.8; the era continues into 7.x after that.
-  if (index <= 8) return `6.${index}`
-  return `7.${index - 9}`
+/**
+ * Version eras.
+ *
+ * The era name restarts at each major version: 6.0-6.8 are Luna I-IX, and the
+ * naming changes to Snezhnaya at 7.0 rather than continuing to Luna X. The
+ * ordinal restarts with the era, so 7.0 is Snezhnaya I.
+ */
+interface Era {
+  name: string
+  major: number
+  /** How many minor versions the era covers. The last era is open-ended. */
+  length: number
+}
+
+const ERAS: Era[] = [
+  { name: 'Luna', major: 6, length: 9 },
+  { name: 'Snezhnaya', major: 7, length: Number.POSITIVE_INFINITY },
+]
+
+function eraFor(index: number): { era: Era; ordinal: number; number: string } {
+  let remaining = index
+  for (const era of ERAS) {
+    if (remaining < era.length) {
+      return { era, ordinal: remaining + 1, number: `${era.major}.${remaining}` }
+    }
+    remaining -= era.length
+  }
+  const last = ERAS[ERAS.length - 1]
+  return { era: last, ordinal: remaining + 1, number: `${last.major}.${remaining}` }
+}
+
+function displayName(era: Era, ordinal: number): string {
+  return `${era.name} ${ROMAN[ordinal - 1] ?? ordinal}`
+}
+
+/**
+ * The name the seed would give a version with this number.
+ *
+ * Used by the store migration to correct rows that still carry an outdated
+ * seeded name, without touching anything an admin has renamed themselves.
+ */
+export function seedNameForNumber(number: string): string | undefined {
+  const [majorRaw, minorRaw] = number.split('.')
+  const major = Number(majorRaw)
+  const minor = Number(minorRaw)
+  if (!Number.isFinite(major) || !Number.isFinite(minor) || minor < 0) return undefined
+  const era = ERAS.find((e) => e.major === major)
+  if (!era || minor >= era.length) return undefined
+  return displayName(era, minor + 1)
 }
 
 export function buildSeedVersions(now = today()): GameVersion[] {
@@ -31,10 +76,11 @@ export function buildSeedVersions(now = today()): GameVersion[] {
     const startDate = addDays(ANCHOR_START, i * VERSION_LENGTH_DAYS)
     const endDate = addDays(startDate, VERSION_LENGTH_DAYS - 1)
     const status = now < startDate ? 'upcoming' : now > endDate ? 'past' : 'live'
+    const { era, ordinal, number } = eraFor(i)
     out.push({
-      id: `luna-${i + 1}`,
-      name: `Luna ${ROMAN[i]}`,
-      number: versionNumberFor(i),
+      id: `${era.name.toLowerCase()}-${ordinal}`,
+      name: displayName(era, ordinal),
+      number,
       startDate,
       phase2Date: addDays(startDate, PHASE_2_OFFSET_DAYS),
       endDate,
