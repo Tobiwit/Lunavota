@@ -146,11 +146,18 @@ JSON export/import is in Settings. There is no account and no wall.
 ## Notes on the seed data
 
 The version schedule is a **scaffold**, not confirmed information: 42-day versions
-from a fixed anchor. Era naming restarts at each major version — Luna I–IX across
-6.0–6.8, then Snezhnaya I onward from 7.0 — so `ERAS` in `data/seedVersions.ts` is
-the one place to extend when the next era is announced. Correct the names and dates
-in `/admin` and every forecast recalculates. The same applies to the recurring
-income constants.
+from a fixed anchor at 2025-09-10. Era naming restarts at each major version — Luna
+I–VIII across 6.0–6.7, then Snezhnaya I onward from 7.0 on 2026-08-12 — so `ERAS`
+in `data/seedVersions.ts` is the one place to change when the next era is
+announced. The same applies to the recurring income constants.
+
+**The seed only runs on a fresh install.** Once a catalogue exists it is the user's,
+and nothing reapplies the defaults on load; only an explicit reset, "Start over", or
+a backup import replaces it. Schema migrations are the sole exception and are
+written to be conservative: they bail out if the shipped schedule has been edited at
+all, skip any row carrying a hand-written name, and never rewrite a version id,
+because banner predictions reference those and a rename would orphan the forecasts
+attached to them.
 
 ## Conventions
 

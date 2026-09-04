@@ -47,9 +47,10 @@ export function VersionsPanel() {
       }
     >
       <Warning>
-        The seeded schedule assumes 42-day versions from a fixed anchor, named Luna I–IX across 6.0–6.8 and Snezhnaya
-        I onward from 7.0. Correct the names and dates here as HoYoverse confirms them; every forecast in the app
-        recalculates immediately.
+        The seeded schedule assumes 42-day versions from a fixed anchor, named Luna I–VIII across 6.0–6.7 and
+        Snezhnaya I onward from 7.0. Correct the names and dates here as HoYoverse confirms them; every forecast in
+        the app recalculates immediately. Nothing you edit here is ever overwritten by the shipped defaults unless you
+        reset the catalogue yourself.
       </Warning>
 
       <ul className="mt-4 space-y-2.5">

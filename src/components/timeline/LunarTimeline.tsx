@@ -374,12 +374,15 @@ function bannerSentence(plan: NonNullable<TimelineNode['plan']>): string {
   if (plan.status === 'guaranteed') {
     return 'Fully funded by the time this opens, even on the worst possible run.'
   }
-  if (plan.fundedDate && plan.prediction?.endDate && plan.fundedDate <= plan.prediction.endDate) {
-    return `${short} short at the start — you should reach a guarantee around ${formatDay(plan.fundedDate)}, during the banner.`
-  }
   const toGuarantee = Math.max(0, plan.cost.worstCase - plan.reserved)
+
+  // Checked before the funded-date branch, which would otherwise open with
+  // "0 short at the start".
   if (short === 0) {
     return `Funded to plan. ${toGuarantee} more would make it certain regardless of luck.`
+  }
+  if (plan.fundedDate && plan.prediction?.endDate && plan.fundedDate <= plan.prediction.endDate) {
+    return `${short} short at the start — you should reach a guarantee around ${formatDay(plan.fundedDate)}, during the banner.`
   }
   if (plan.status === 'unfunded') {
     return `Higher-priority targets claim these wishes first, leaving this ${short} short of plan.`

@@ -22,12 +22,13 @@ import {
   buildSeedVersions,
   recomputeVersionStatuses,
   seedNameForNumber,
+  SEEDED_VERSION_NAME,
 } from '@/data/seedVersions'
 import { buildSeedPredictions } from '@/data/seedPredictions'
 import { today } from '@/lib/date'
 import { addWishes, spendWishes } from '@/engine/simulation'
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 const DEFAULT_USER: UserWishState = {
   intertwinedFates: 0,
@@ -316,6 +317,29 @@ export const useStore = create<AppState>()(
             return { ...v, name: seeded }
           })
         }
+        // v3: the era boundary moved — 7.0 opened on 2026-08-12, so Luna ends at
+        // 6.7. That renumbers every version from there on.
+        //
+        // Renumbering is only safe on a catalogue nobody has touched, so this
+        // bails out unless the stored schedule still matches the shipped dates
+        // exactly, and it skips any row carrying a name an admin wrote. Ids are
+        // never rewritten: banner predictions reference them, and renaming one
+        // would orphan every forecast attached to it.
+        if (fromVersion < 3 && state?.versions) {
+          const fresh = buildSeedVersions()
+          const untouchedSchedule =
+            state.versions.length === fresh.length &&
+            state.versions.every((v, i) => v.startDate === fresh[i].startDate)
+
+          if (untouchedSchedule) {
+            state.versions = state.versions.map((v, i) =>
+              SEEDED_VERSION_NAME.test(v.name)
+                ? { ...v, name: fresh[i].name, number: fresh[i].number }
+                : v,
+            )
+          }
+        }
+
         return state as AppState
       },
       onRehydrateStorage: () => (state) => {

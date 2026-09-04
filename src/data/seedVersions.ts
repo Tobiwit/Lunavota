@@ -34,9 +34,14 @@ interface Era {
 }
 
 const ERAS: Era[] = [
-  { name: 'Luna', major: 6, length: 9 },
+  // 6.0 opened on 2025-09-10; 6.7 is the last of the Luna era, and 7.0 begins
+  // on 2026-08-12 — eight versions at the 42-day cadence.
+  { name: 'Luna', major: 6, length: 8 },
   { name: 'Snezhnaya', major: 7, length: Number.POSITIVE_INFINITY },
 ]
+
+/** A name the seed could have produced, as opposed to one an admin typed. */
+export const SEEDED_VERSION_NAME = /^(?:Luna|Snezhnaya) [IVXL]+$/
 
 function eraFor(index: number): { era: Era; ordinal: number; number: string } {
   let remaining = index
