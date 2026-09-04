@@ -24,13 +24,26 @@ export function SourcesPanel() {
 
   const [characterId, setCharacterId] = useState<string>('')
 
-  const characterOptions = useMemo(
-    () =>
-      characters
-        .filter((c) => c.releaseStatus !== 'released' || predictions.some((p) => p.characterId === c.id))
-        .map((c) => ({ value: c.id, label: c.displayName })),
-    [characters, predictions],
-  )
+  // Every character, not just unreleased ones: a rerun is a banner placement
+  // like any other, and reruns are most of what people actually plan around.
+  const characterOptions = useMemo(() => {
+    const rank = (c: (typeof characters)[number]) => {
+      if (predictions.some((p) => p.characterId === c.id)) return 0
+      return c.releaseStatus === 'released' ? 2 : 1
+    }
+    return characters
+      .slice()
+      .sort((a, b) => rank(a) - rank(b) || a.displayName.localeCompare(b.displayName))
+      .map((c) => ({
+        value: c.id,
+        label:
+          predictions.some((p) => p.characterId === c.id)
+            ? `${c.displayName} · scheduled`
+            : c.releaseStatus === 'released'
+              ? `${c.displayName} · rerun`
+              : c.displayName,
+      }))
+  }, [characters, predictions])
 
   const selectedId = characterId || characterOptions[0]?.value || ''
   const mine = predictions.filter((p) => p.characterId === selectedId)
@@ -54,8 +67,8 @@ export function SourcesPanel() {
 
   return (
     <AdminSection
-      title="Banner predictions"
-      description="Assign one or several possible appearances to a character. The timeline places them at the most probable point and visually softens anything uncertain."
+      title="Banner timing"
+      description="This is where you say when a character runs. Assign one or several possible appearances — including reruns of released characters — and the timeline places them at the most probable point, softening whatever is uncertain."
       action={
         <button type="button" className="btn btn-quiet !min-h-[38px] !px-4 !text-[13px]" onClick={addPrediction}>
           Add prediction

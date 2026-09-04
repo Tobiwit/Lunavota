@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import type { TargetPlan } from '@/types'
-import { CharacterArt } from '@/components/character/CharacterArt'
+import { CharacterSplash } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge, PredictionChip } from '@/components/ui/status'
 import { formatChance } from '@/lib/format'
@@ -32,63 +32,69 @@ export function TargetCard({ plan, onOpen, onMoveUp, onMoveDown, index = 0 }: Pr
       {/* A thin band of the priority's light down the leading edge. */}
       <span
         aria-hidden
-        className="absolute inset-y-0 left-0 w-[2px]"
+        className="absolute inset-y-0 left-0 z-10 w-[2px]"
         style={{ background: `linear-gradient(180deg, transparent, ${accent}88, transparent)` }}
       />
 
-      <button type="button" onClick={onOpen} className="flex w-full gap-4 p-3.5 text-left">
-        <div className="relative h-[96px] w-[74px] shrink-0 overflow-hidden rounded-xl border border-[var(--hairline)]">
-          <CharacterArt character={character} variant="card" />
+      {/* The art is part of the card, not a thumbnail sitting next to it. */}
+      <CharacterSplash character={character} className="-top-2 bottom-0 right-0 w-[62%]" />
+
+      <button
+        type="button"
+        onClick={onOpen}
+        className="relative flex min-h-[178px] w-full flex-col p-4 pr-[44%] text-left"
+      >
+        <h3 className="min-w-0 font-display text-[21px] leading-tight text-moon">
+          {character.displayName}
+        </h3>
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="inline-flex items-center gap-1.5">
+            <PriorityGlyph priority={target.priority} size={11} />
+            <span className="text-[11px] uppercase tracking-wide2" style={{ color: accent }}>
+              {PRIORITY_LABEL[target.priority]}
+            </span>
+          </span>
+          <span className="text-[11.5px] text-moon-dim">
+            C{target.constellationTarget}
+            {target.signatureWeapon && ' · weapon'}
+          </span>
+          {/* Inline rather than in the corner: the corner is now artwork, and a
+              small glyph there is unreadable over a bright splash. */}
+          {!plan.timingUnknown && <AffordabilityBadge status={plan.status} showLabel={false} />}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="min-w-0 truncate font-display text-[20px] leading-tight text-moon">
-              {character.displayName}
-            </h3>
-            <AffordabilityBadge status={plan.status} showLabel={false} className="mt-1 shrink-0" />
-          </div>
-
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="inline-flex items-center gap-1.5">
-              <PriorityGlyph priority={target.priority} size={11} />
-              <span className="text-[11px] uppercase tracking-wide2" style={{ color: accent }}>
-                {PRIORITY_LABEL[target.priority]}
-              </span>
-            </span>
-            <span className="text-[11.5px] text-moon-dim">
-              C{target.constellationTarget}
-              {target.signatureWeapon && ' · weapon'}
-            </span>
-          </div>
-
-          <div className="mt-2.5">
-            <PredictionChip prediction={plan.prediction} className="text-[11px]" />
-          </div>
-
+        <div className="mt-auto pt-3">
+          <PredictionChip prediction={plan.prediction} className="text-[11px]" />
           {target.reasons.length > 0 && (
-            <p className="mt-2.5 truncate text-[11.5px] text-moon-faint">
+            <p className="mt-2 truncate text-[11.5px] text-moon-faint">
               {target.reasons.join(' · ')}
             </p>
           )}
         </div>
       </button>
 
-      <div className="rule" />
+      <div className="rule relative" />
 
-      <footer className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-        <div className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="num text-[15px] text-moon">{plan.reserved}</span>
-          <span className="text-[11.5px] text-moon-dim">of {plan.plannedCost} set aside</span>
-          <span className="text-[11.5px] text-moon-faint">·</span>
-          <span
-            className="num text-[12px]"
-            style={{ color: plan.successChance >= 0.9995 ? 'var(--success)' : 'var(--moon-muted)' }}
-          >
-            {formatChance(plan.successChance)}
-          </span>
-          <span className="text-[11.5px] text-moon-dim">chance</span>
-        </div>
+      <footer className="relative flex items-center justify-between gap-3 px-3.5 py-2.5">
+        {plan.timingUnknown ? (
+          <p className="text-[11.5px] text-moon-dim">
+            No known banner yet · <span className="num">{plan.plannedCost}</span> wishes when they appear
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-baseline gap-x-1.5">
+            <span className="num text-[15px] text-moon">{plan.reserved}</span>
+            <span className="text-[11.5px] text-moon-dim">of {plan.plannedCost} set aside</span>
+            <span className="text-[11.5px] text-moon-faint">·</span>
+            <span
+              className="num text-[12px]"
+              style={{ color: plan.successChance >= 0.9995 ? 'var(--success)' : 'var(--moon-muted)' }}
+            >
+              {formatChance(plan.successChance)}
+            </span>
+            <span className="text-[11.5px] text-moon-dim">chance</span>
+          </div>
+        )}
 
         {(onMoveUp || onMoveDown) && (
           <div className="flex items-center gap-1">

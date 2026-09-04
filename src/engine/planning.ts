@@ -214,12 +214,17 @@ export function buildPlan(input: PlanningInput): Budget {
     const character = characters.get(target.characterId)!
     const cost = costs.get(target.id)!
     const need = target.lockedReservation ?? cost.planned
-    cumulativeNeed += need
 
     // A banner already underway is treated as happening now, not in the past.
     const bannerDate =
       prediction?.date && prediction.date < now ? now : prediction?.date
     const skipped = skipReason(target, prediction, byPriority, versions)
+
+    // Nobody credibly knows when this character arrives, so there is no date to
+    // fund against. Locking wishes away for them today would be pure guesswork,
+    // and it would quietly starve targets that do have a placement.
+    const timingUnknown = !bannerDate
+    if (!timingUnknown) cumulativeNeed += need
 
     // Draw from income that has already arrived by the banner, latest first.
     let outstanding = skipped ? 0 : need
@@ -237,7 +242,8 @@ export function buildPlan(input: PlanningInput): Budget {
       }
     }
 
-    const fromPool = PROTECTS_POOL[target.priority] ? Math.min(poolRemaining, outstanding) : 0
+    const fromPool =
+      PROTECTS_POOL[target.priority] && !timingUnknown ? Math.min(poolRemaining, outstanding) : 0
     poolRemaining -= fromPool
     const allocated = fromIncome + fromPool
 
@@ -256,6 +262,7 @@ export function buildPlan(input: PlanningInput): Budget {
       character,
       cost,
       plannedCost: need,
+      timingUnknown,
       targetConfidence: TARGET_CONFIDENCE[mode][target.priority],
       reservedFromPool: fromPool,
       reservedFromIncome: fromIncome,
@@ -267,6 +274,7 @@ export function buildPlan(input: PlanningInput): Budget {
       balanceAtBannerEnd: atEnd,
       incomeDuringBanner: Math.max(0, atEnd - range.expected),
       status: gradeAffordability(allocated, cost, skipped),
+
       shortfall: Math.max(0, need - allocated),
       fundedDate: curve.dateWhenBalanceReaches(cumulativeNeed),
       prediction,

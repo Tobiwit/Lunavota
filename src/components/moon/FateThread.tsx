@@ -86,10 +86,19 @@ export function FateThreads({ plans, onSelect }: Props) {
                 </span>
               </span>
               <span className="shrink-0 text-right">
-                <span className="num text-[14px] text-moon-muted">{plan.reserved}</span>
-                <span className="ml-1 text-[12px] text-moon-dim">
-                  {plan.status === 'unfunded' ? 'short' : 'reserved'}
-                </span>
+                {plan.timingUnknown ? (
+                  <span className="text-[12px] text-moon-dim">no banner yet</span>
+                ) : plan.shortfall > 0 ? (
+                  <>
+                    <span className="num text-[14px] text-danger">{plan.shortfall}</span>
+                    <span className="ml-1 text-[12px] text-moon-dim">short</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="num text-[14px] text-moon-muted">{plan.reserved}</span>
+                    <span className="ml-1 text-[12px] text-moon-dim">reserved</span>
+                  </>
+                )}
               </span>
             </button>
           </li>

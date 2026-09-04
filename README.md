@@ -129,6 +129,14 @@ not a reachable state.
 Characters are keyed on stable ids (`temp:mitya` until an official id exists), never
 on display names.
 
+**Presentation.** `CharacterSplash` makes the art part of the card rather than a
+thumbnail beside it. Official gacha splashes ship with a *painted* background
+rather than a cutout, so a straight edge reads as a photo pasted on; two crossed
+linear masks dissolve all four sides, and a night wash — inside the mask, or it
+paints the very rectangle it was meant to hide — settles the brightness into the
+same room as the rest of the interface. Everything that is not a placeholder gets
+`object-position: top`, because a face is never the thing that should be cropped.
+
 ## Data
 
 Local-first: everything lives in IndexedDB behind `PersistenceAdapter` in
@@ -149,6 +157,9 @@ forecast recalculates. The same applies to the recurring income constants.
 - `.num` forces the interface face onto every figure; Marcellus has no legible `1`.
 - Priority is never encoded by colour alone: moon-phase glyph, word and accent
   always travel together.
+- A target with no credible banner placement states no affordability at all. It
+  cannot be funded against a date, so it does not lock the pool and does not get a
+  status badge — it says "no known banner yet" and stays out of the way.
 - `prefers-reduced-motion` is honoured globally in `styles/index.css`.
 
 ## Stack

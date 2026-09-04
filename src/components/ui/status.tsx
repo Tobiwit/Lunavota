@@ -56,7 +56,7 @@ export function PredictionChip({
 }) {
   if (!prediction) {
     return (
-      <span className={clsx('chip', className)}>
+      <span className={clsx('chip whitespace-nowrap', className)}>
         <span className="text-moon-dim">Timing unknown</span>
       </span>
     )
@@ -67,7 +67,7 @@ export function PredictionChip({
 
   return (
     <span
-      className={clsx('chip', className)}
+      className={clsx('chip whitespace-nowrap', className)}
       style={official ? { borderColor: 'rgba(169,213,232,0.42)', color: 'var(--moon)' } : undefined}
     >
       <span>{prediction.versionName}</span>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Sheet } from '@/components/ui/Sheet'
 import { NumberField, Toggle, Why } from '@/components/ui/controls'
-import { CharacterArt } from '@/components/character/CharacterArt'
+import { CharacterSplash } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, PRIORITY_MEANING } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge, PredictionChip, RangeValue } from '@/components/ui/status'
 import { useStore } from '@/store/useStore'
@@ -74,12 +74,11 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
       }
     >
       {/* -- header ------------------------------------------------------ */}
-      <header className="mb-6 flex gap-4">
-        <div className="relative h-[124px] w-[96px] shrink-0 overflow-hidden rounded-2xl border border-[var(--hairline)]">
-          <CharacterArt character={character} variant="card" />
-        </div>
-        <div className="min-w-0 flex-1 self-end pb-1">
-          <h2 className="font-display text-[28px] leading-tight text-moon">{character.displayName}</h2>
+      {/* A banner rather than a thumbnail: this is the character's own screen. */}
+      <header className="relative -mx-5 mb-6 h-[212px] overflow-hidden">
+        <CharacterSplash character={character} className="inset-y-0 right-0 w-[74%]" fade={40} />
+        <div className="relative flex h-full flex-col justify-end px-5 pb-1 pr-[42%]">
+          <h2 className="font-display text-[30px] leading-tight text-moon">{character.displayName}</h2>
           <p className="mt-1 text-[12.5px] text-moon-dim">
             {elementLabel(character.element)}
             {character.rarity ? ` · ${character.rarity}★` : ''}
@@ -127,7 +126,7 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
               would only repeat the same number back. */}
           {plan.targetConfidence < 1 && (
             <p className="mt-2.5 text-[12.5px] leading-relaxed text-moon-dim">
-              As a {PRIORITY_LABEL[target.priority]} this is planned to{' '}
+              {PRIORITY_LABEL[target.priority]} targets are planned to{' '}
               {Math.round(plan.targetConfidence * 100)}% certainty —{' '}
               <span className="num text-moon-muted">{plan.plannedCost}</span> wishes. A full guarantee regardless of
               luck would need <span className="num text-moon-muted">{cost.worstCase}</span>.
@@ -156,8 +155,8 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
                 C{target.constellationTarget}. That number never depends on luck.
               </p>
               <p className="mt-2">
-                Because this target is a {PRIORITY_LABEL[target.priority]}, the plan aims for{' '}
-                {Math.round(plan.targetConfidence * 100)}% certainty, or {plan.plannedCost} wishes. With the{' '}
+                {PRIORITY_LABEL[target.priority]} targets are planned to{' '}
+                {Math.round(plan.targetConfidence * 100)}% certainty, which is {plan.plannedCost} wishes. With the{' '}
                 {plan.reserved} actually set aside, the chance of reaching C{target.constellationTarget} is about{' '}
                 {formatChance(plan.successChance)}.
               </p>

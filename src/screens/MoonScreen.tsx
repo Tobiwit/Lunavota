@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Screen } from '@/components/ui/Screen'
 import { MoonLegend, MoonRing, type MoonSegment } from '@/components/moon/MoonRing'
 import { FateThreads } from '@/components/moon/FateThread'
-import { CharacterArt } from '@/components/character/CharacterArt'
+import { CharacterSplash } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge, CountUp, PredictionChip, RangeValue } from '@/components/ui/status'
 import { SectionTitle, Why } from '@/components/ui/controls'
@@ -193,13 +193,11 @@ export function MoonScreen() {
             onClick={() => setDetail(next)}
             className="panel group relative block w-full overflow-hidden text-left"
           >
-            <div className="flex gap-4 p-4">
-              <div className="relative h-[112px] w-[86px] shrink-0 overflow-hidden rounded-2xl border border-[var(--hairline)]">
-                <CharacterArt character={next.character} variant="card" />
-              </div>
+            <CharacterSplash character={next.character} className="-top-3 bottom-0 right-0 w-[62%]" />
 
-              <div className="min-w-0 flex-1">
-                <h3 className="font-display text-[24px] leading-tight text-moon">
+            <div className="relative min-h-[196px] p-4 pr-[38%]">
+              <div className="min-w-0">
+                <h3 className="font-display text-[26px] leading-tight text-moon">
                   {next.character.displayName}
                 </h3>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -216,21 +214,22 @@ export function MoonScreen() {
                   <PredictionChip prediction={next.prediction} />
                 </div>
 
-                <div className="mt-3.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <div className="mt-4">
                   <AffordabilityBadge status={next.status} />
-                  <span className="text-[12px] text-moon-dim">
-                    · {next.reserved} of {next.plannedCost} set aside
-                  </span>
-                  <span className="text-[12px] text-moon-dim">
-                    · <span className="num text-moon-muted">{formatChance(next.successChance)}</span> chance
-                  </span>
+                  {!next.timingUnknown && (
+                    <p className="mt-1.5 text-[12px] text-moon-dim">
+                      <span className="num text-moon-muted">{next.reserved}</span> of{' '}
+                      <span className="num text-moon-muted">{next.plannedCost}</span> set aside ·{' '}
+                      <span className="num text-moon-muted">{formatChance(next.successChance)}</span> chance
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="rule" />
+            <div className="rule relative" />
 
-            <p className="px-4 py-3.5 text-[13.5px] leading-relaxed text-moon-muted">
+            <p className="relative px-4 py-3.5 text-[13.5px] leading-relaxed text-moon-muted">
               {fundingSentence(next, now)}
             </p>
           </button>
@@ -405,24 +404,31 @@ function spendSentence(budget: Budget, mode: PlanningMode): string {
 
 function fundingSentence(plan: TargetPlan, now: string): string {
   const name = plan.character.displayName
+  const short = Math.max(0, plan.plannedCost - plan.reserved)
+
+  if (plan.timingUnknown) {
+    return `No banner is expected for ${name} yet, so nothing is held back. They would cost about ${plan.plannedCost} wishes whenever they appear.`
+  }
   if (plan.status === 'guaranteed') {
     return `You are fully funded. Even the worst possible run reaches ${name} at C${plan.target.constellationTarget}.`
   }
 
-  const short = Math.max(0, plan.plannedCost - plan.reserved)
+  // A banner that has already opened is a different sentence from one ahead.
+  const live = Boolean(plan.prediction?.date && plan.prediction.date <= now)
+  if (live) {
+    return short > 0
+      ? `This banner is running now, and you are ${short} short of what the plan wants for ${name}.`
+      : `This banner is running now, and ${name} is funded to plan.`
+  }
+
+  if (short === 0) {
+    return `Funded to plan before the banner opens. A full guarantee would need ${plan.cost.worstCase - plan.reserved} more.`
+  }
   if (plan.fundedDate && plan.prediction?.date) {
     const gap = daysBetween(plan.fundedDate, plan.prediction.date)
     if (gap >= 0) {
-      return `On track. You should reach a full guarantee around ${formatDay(plan.fundedDate)}, ${gap} days before the banner.`
+      return `On track. Your plan covers this around ${formatDay(plan.fundedDate)}, ${gap} days before the banner opens.`
     }
-    return `The banner is expected to open ${-gap} days before you are fully guaranteed — around ${formatDay(plan.fundedDate)}.`
   }
-
-  if (plan.status === 'likely') {
-    return `Well funded on an ordinary run, though ${short} more wishes would make ${name} certain.`
-  }
-  if (plan.status === 'at-risk') {
-    return `Possible, but a bad run would cost you something else. ${short} more wishes would settle it.`
-  }
-  return `${short} more wishes are needed to guarantee ${name}${plan.prediction?.date ? `, and the banner is ${relativeDays(now, plan.prediction.date)}` : ''}.`
+  return `${short} short of plan${plan.prediction?.date ? `, and the banner is ${relativeDays(now, plan.prediction.date)}` : ''}.`
 }

@@ -310,6 +310,8 @@ export interface TargetPlan {
   cost: TargetCost
   /** What the plan aims to set aside, after caps and any pinned reservation. */
   plannedCost: number
+  /** No credible banner placement, so affordability cannot be stated at all. */
+  timingUnknown: boolean
   /** The certainty this priority is planned to, under the active mode. 0..1. */
   targetConfidence: number
   /** Wishes this target locks out of today's pool. */

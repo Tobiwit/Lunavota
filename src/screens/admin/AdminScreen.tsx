@@ -18,7 +18,7 @@ import { PRIMOS_PER_WISH } from '@/engine/wish'
  * half-finished leak information does not reach anyone's forecast.
  */
 
-const TABS = ['Versions', 'Characters', 'Calendar', 'Income', 'Sources'] as const
+const TABS = ['Versions', 'Banners', 'Characters', 'Calendar', 'Income'] as const
 type Tab = (typeof TABS)[number]
 
 export function AdminScreen() {
@@ -114,7 +114,7 @@ export function AdminScreen() {
           {tab === 'Characters' && <CharactersPanel />}
           {tab === 'Calendar' && <CalendarPanel />}
           {tab === 'Income' && <IncomePanel />}
-          {tab === 'Sources' && <SourcesPanel />}
+          {tab === 'Banners' && <SourcesPanel />}
 
           <footer className="mt-16 border-t border-[var(--hairline)] pt-6">
             <p className="text-[11.5px] leading-relaxed text-moon-faint">

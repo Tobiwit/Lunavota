@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import type { TimelineNode } from '@/engine/timeline'
-import { CharacterArt } from '@/components/character/CharacterArt'
+import { CharacterSplash } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge } from '@/components/ui/status'
 import { formatDay, formatRange } from '@/lib/date'
@@ -190,33 +190,29 @@ function BannerRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Time
 
   return (
     <div className="relative py-3">
-      {/* Portrait sits on the thread like a constellation waypoint. */}
+      {/* The waypoint on the thread. The portrait now lives inside the card, so
+          this stays a mark: priority phase inside a probability ring. */}
       <span
         aria-hidden
         className="absolute z-10 flex items-center justify-center"
-        style={{ left: THREAD_X - 22, top: 22, width: 44, height: 44 }}
+        style={{ left: THREAD_X - 17, top: 26, width: 34, height: 34 }}
       >
         <span
           className="absolute inset-0 rounded-full"
           style={{
-            background: 'rgba(9,13,24,0.95)',
+            background: 'rgba(9,13,24,0.96)',
             border: `1px solid ${accent}${uncertain ? '55' : 'aa'}`,
-            boxShadow: uncertain ? 'none' : `0 0 18px -4px ${accent}`,
+            boxShadow: uncertain ? 'none' : `0 0 16px -4px ${accent}`,
           }}
         />
-        <span
-          className="relative h-[38px] w-[38px] overflow-hidden rounded-full"
-          style={{ filter: uncertain ? 'blur(0.4px)' : undefined, opacity: uncertain ? 0.8 : 1 }}
-        >
-          <CharacterArt character={plan.character} variant="thumb" className="h-full w-full rounded-full" />
-        </span>
-        {/* A probability ring: how firmly they are anchored to this point in time. */}
+        <PriorityGlyph priority={plan.target.priority} size={15} className="relative" />
+        {/* How firmly they are anchored to this point in time. */}
         {plan.prediction && !plan.prediction.isUserOverride && (
-          <svg className="absolute -inset-[5px] -rotate-90" viewBox="0 0 54 54" aria-hidden>
+          <svg className="absolute -inset-[5px] -rotate-90" viewBox="0 0 44 44" aria-hidden>
             <circle
-              cx="27" cy="27" r="25"
+              cx="22" cy="22" r="20"
               fill="none" stroke={accent} strokeOpacity="0.85" strokeWidth="1.4" strokeLinecap="round"
-              strokeDasharray={`${plan.prediction.confidence * 157} 157`}
+              strokeDasharray={`${plan.prediction.confidence * 125.6} 125.6`}
             />
           </svg>
         )}
@@ -228,52 +224,46 @@ function BannerRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Time
       <button
         type="button"
         onClick={() => onSelect?.(node)}
-        className="panel block w-full px-4 py-3.5 text-left"
+        className="panel relative block w-full overflow-hidden px-4 py-3.5 text-left"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate font-display text-[20px] leading-tight text-moon">
-              {plan.character.displayName}
-            </h3>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="inline-flex items-center gap-1.5">
-                <PriorityGlyph priority={plan.target.priority} size={10} />
-                <span className="text-[10.5px] uppercase tracking-wide2" style={{ color: accent }}>
-                  {PRIORITY_LABEL[plan.target.priority]}
-                </span>
-              </span>
-              <span className="text-[11px] text-moon-dim">C{plan.target.constellationTarget}</span>
-            </div>
-          </div>
-          <AffordabilityBadge status={plan.status} showLabel={false} className="mt-1 shrink-0" />
-        </div>
+        {/* The art owns the right edge; every figure stays clear of it. */}
+        <CharacterSplash character={plan.character} className="-top-3 -right-2 bottom-0 w-[46%]" />
 
-        {/* Set aside, not gross balance: what the plan can actually commit once
-            higher priorities have taken theirs — and what that buys in odds. */}
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <div>
-            {/* Tighter than the standard eyebrow: three columns at 375px. */}
-            <p className="eyebrow !tracking-[0.07em]">Set aside</p>
-            <p className="num mt-1 text-[22px] leading-none text-moon">{plan.reserved}</p>
+        <div className="relative pr-[38%]">
+          <h3 className="truncate font-display text-[20px] leading-tight text-moon">
+            {plan.character.displayName}
+          </h3>
+
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="inline-flex items-center gap-1.5">
+              <PriorityGlyph priority={plan.target.priority} size={10} />
+              <span className="text-[10.5px] uppercase tracking-wide2" style={{ color: accent }}>
+                {PRIORITY_LABEL[plan.target.priority]}
+              </span>
+            </span>
+            <span className="text-[11px] text-moon-dim">C{plan.target.constellationTarget}</span>
+            <AffordabilityBadge status={plan.status} showLabel={false} />
           </div>
-          <div>
-            <p className="eyebrow !tracking-[0.07em]">Needs</p>
-            <p className="num mt-1 text-[22px] leading-none text-moon-dim">{plan.plannedCost}</p>
-          </div>
-          <div className="text-right">
-            <p className="eyebrow !tracking-[0.07em]">Chance</p>
-            <p
-              className="num mt-1 text-[22px] leading-none"
+
+          {/* The odds lead: they are the answer, and the allocation explains it. */}
+          <div className="mt-3.5 flex items-baseline gap-2">
+            <span
+              className="num text-[30px] leading-none"
               style={{ color: plan.successChance >= 0.9995 ? 'var(--success)' : 'var(--moon)' }}
             >
               {formatChance(plan.successChance)}
-            </p>
+            </span>
+            <span className="text-[12px] text-moon-dim">chance</span>
           </div>
-        </div>
+          <p className="mt-1.5 text-[12px] text-moon-dim">
+            <span className="num text-moon-muted">{plan.reserved}</span> of{' '}
+            <span className="num text-moon-muted">{plan.plannedCost}</span> set aside
+          </p>
 
-        <p className="mt-3 text-[12.5px] leading-relaxed text-moon-muted">
-          {bannerSentence(plan)}
-        </p>
+          <p className="mt-3 text-[12.5px] leading-relaxed text-moon-muted">
+            {bannerSentence(plan)}
+          </p>
+        </div>
       </button>
       </div>
     </div>

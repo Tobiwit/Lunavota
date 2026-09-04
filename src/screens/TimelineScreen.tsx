@@ -5,7 +5,6 @@ import { Sheet } from '@/components/ui/Sheet'
 import { Segmented, EmptyState } from '@/components/ui/controls'
 import { TargetDetailSheet } from '@/components/wishlist/TargetDetailSheet'
 import { PriorityGlyph } from '@/components/ui/PriorityGlyph'
-import { AffordabilityBadge } from '@/components/ui/status'
 import { CharacterArt } from '@/components/character/CharacterArt'
 import { useBudget, useForecast, useTimeline } from '@/store/selectors'
 import { useStore } from '@/store/useStore'
@@ -120,7 +119,9 @@ export function TimelineScreen() {
                       <span className="text-[11.5px] text-moon-dim">Timing unknown</span>
                     </span>
                   </span>
-                  <AffordabilityBadge status={plan.status} showLabel={false} />
+                  <span className="shrink-0 num text-[11.5px] text-moon-faint">
+                    {plan.plannedCost} needed
+                  </span>
                 </button>
               </li>
             ))}
