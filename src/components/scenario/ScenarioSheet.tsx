@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Sheet } from '@/components/ui/Sheet'
-import { Toggle } from '@/components/ui/controls'
 import { PullDial } from './PullDial'
+import { LuckScale, type LuckOption } from './LuckScale'
 import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { useStore } from '@/store/useStore'
 import { useBudget, useForecast } from '@/store/selectors'
-import { runChain, summariseChain, type ChainNode } from '@/engine/chain'
+import {
+  chainTotalDistribution,
+  chanceOfTotalAtMost,
+  CHAIN_PRESETS,
+  CHAIN_PRESET_ORDER,
+  runChain,
+  summariseChain,
+  type ChainNode,
+  type ChainPreset,
+} from '@/engine/chain'
 import { spendWishes } from '@/engine/simulation'
 import { formatChance } from '@/lib/format'
 import { formatDay, today } from '@/lib/date'
@@ -33,8 +42,8 @@ export function ScenarioSheet({ open, onClose }: { open: boolean; onClose: () =>
   const curve = useForecast()
   const now = today()
 
-  /** On: every dial follows the model. Off: the numbers are yours. */
-  const [typicalRun, setTypicalRun] = useState(true)
+  /** A preset drives every dial. Null means the numbers are yours. */
+  const [preset, setPreset] = useState<ChainPreset | null>('typical')
   const [pulls, setPulls] = useState<Record<string, number>>({})
   const [wins, setWins] = useState<Record<string, boolean>>({})
 
@@ -50,41 +59,75 @@ export function ScenarioSheet({ open, onClose }: { open: boolean; onClose: () =>
         user,
         plans,
         curve,
-        assumptionFor: (id) => ({
-          winFiftyFifty: wins[id] ?? true,
-          pulls: typicalRun ? undefined : pulls[id],
-        }),
+        assumptionFor: (id, index) => {
+          if (preset) {
+            const spec = CHAIN_PRESETS[preset]
+            return { winFiftyFifty: spec.winAt(index), percentile: spec.percentile }
+          }
+          return { winFiftyFifty: wins[id] ?? true, pulls: pulls[id] }
+        },
       }),
-    [now, user, plans, curve, wins, pulls, typicalRun],
+    [now, user, plans, curve, wins, pulls, preset],
   )
 
   const summary = useMemo(() => summariseChain(chain), [chain])
 
   /**
-   * The first drag leaves the model behind, so freeze what is on screen before
-   * applying it — otherwise every other dial would jump at the same moment.
+   * Each preset priced against the same blended curve, so the five read as one
+   * scale: how often a run comes in at that total or under.
    */
-  const changePulls = (id: string, value: number) => {
-    if (typicalRun) {
-      const frozen: Record<string, number> = {}
-      for (const node of chain) frozen[node.plan.target.id] = node.pulls
-      frozen[id] = value
-      setPulls(frozen)
-      setTypicalRun(false)
-      return
+  const luckOptions = useMemo<LuckOption[]>(() => {
+    const totals = chainTotalDistribution(user, plans)
+    return CHAIN_PRESET_ORDER.map((id) => {
+      const spec = CHAIN_PRESETS[id]
+      const run = runChain({
+        now,
+        user,
+        plans,
+        curve,
+        assumptionFor: (_id, index) => ({
+          winFiftyFifty: spec.winAt(index),
+          percentile: spec.percentile,
+        }),
+      })
+      const total = run.reduce((sum, node) => sum + node.pulls, 0)
+      return { id, label: spec.label, chanceLabel: formatChance(chanceOfTotalAtMost(totals, total)) }
+    })
+  }, [now, user, plans, curve])
+
+  /**
+   * Taking over by hand freezes what is on screen first, so only the control
+   * that was touched moves. After that no preset describes the run any more, so
+   * the scale clears rather than pointing at something untrue.
+   */
+  const takeOver = () => {
+    if (!preset) return { pulls: { ...pulls }, wins: { ...wins } }
+    const frozenPulls: Record<string, number> = {}
+    const frozenWins: Record<string, boolean> = {}
+    for (const node of chain) {
+      frozenPulls[node.plan.target.id] = node.pulls
+      frozenWins[node.plan.target.id] = node.winFiftyFifty
     }
-    setPulls((prev) => ({ ...prev, [id]: value }))
+    return { pulls: frozenPulls, wins: frozenWins }
+  }
+
+  const changePulls = (id: string, value: number) => {
+    const frozen = takeOver()
+    frozen.pulls[id] = value
+    setPulls(frozen.pulls)
+    setWins(frozen.wins)
+    setPreset(null)
   }
 
   const toggleWin = (id: string, next: boolean) => {
-    setWins((prev) => ({ ...prev, [id]: next }))
+    const frozen = takeOver()
+    frozen.wins[id] = next
     // The cost of this stop just changed shape, so drop a hand-set number rather
     // than leaving a value that meant something else a moment ago.
-    setPulls((prev) => {
-      const rest = { ...prev }
-      delete rest[id]
-      return rest
-    })
+    delete frozen.pulls[id]
+    setPulls(frozen.pulls)
+    setWins(frozen.wins)
+    setPreset(null)
   }
 
   // Only a banner that is actually running can be committed to real data.
@@ -128,14 +171,12 @@ export function ScenarioSheet({ open, onClose }: { open: boolean; onClose: () =>
         </p>
       ) : (
         <>
-          <div className="panel-flat mb-5 px-4">
-            <Toggle
-              checked={typicalRun}
-              onChange={(v) => setTypicalRun(v)}
-              label="Typical run"
-              hint="Sets every dial to what each character usually costs. Turn a dial to take over."
-            />
-          </div>
+          <LuckScale value={preset} options={luckOptions} onChange={setPreset} />
+          <p className="mb-5 mt-2 text-[11.5px] leading-snug text-moon-faint">
+            {preset
+              ? 'Percentages are how often a whole run comes in at that total or under. Turn any dial to take over.'
+              : 'These are your numbers now — no preset describes this run.'}
+          </p>
 
           <div className="mb-5 flex items-baseline justify-between gap-3">
             <p className="text-[13px] text-moon-dim">
@@ -176,7 +217,7 @@ export function ScenarioSheet({ open, onClose }: { open: boolean; onClose: () =>
 
           <p className="mt-5 text-[11.5px] leading-relaxed text-moon-faint">
             Each dial is what a character costs you, not a budget cap — so everyone on the chain is obtained, and the
-            percentage is how often a run goes that well or better. Dial one to zero to skip that banner.
+            percentage beside it is how often that stop goes that well or better. Dial one to zero to skip a banner.
           </p>
         </>
       )}

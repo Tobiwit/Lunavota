@@ -1,5 +1,13 @@
 import type { ForecastCurve, TargetPlan, UserWishState } from '@/types'
-import { assumedDistribution, assumedWorstCase, chanceWithin, clampPity, quantile } from './wish'
+import {
+  assumedDistribution,
+  assumedWorstCase,
+  chanceWithin,
+  clampPity,
+  limitedCharacterDistribution,
+  quantile,
+  sumDistributions,
+} from './wish'
 import { today } from '@/lib/date'
 
 /**
@@ -19,8 +27,10 @@ import { today } from '@/lib/date'
 export interface ChainAssumption {
   /** Assume the 50/50 falls your way here. Ignored while on a guarantee. */
   winFiftyFifty: boolean
-  /** Wishes it takes. Undefined means "use the typical run". */
+  /** Wishes it takes. Wins over `percentile` when both are given. */
   pulls?: number
+  /** How lucky this stop goes, as a quantile of its own cost curve. 1 = hard pity. */
+  percentile?: number
 }
 
 export interface ChainNode {
@@ -51,7 +61,7 @@ export interface ChainInput {
   /** Chronological, and only those with a credible banner placement. */
   plans: TargetPlan[]
   curve: ForecastCurve
-  assumptionFor: (targetId: string) => ChainAssumption
+  assumptionFor: (targetId: string, index: number) => ChainAssumption
 }
 
 export function runChain({ now = today(), user, plans, curve, assumptionFor }: ChainInput): ChainNode[] {
@@ -60,13 +70,15 @@ export function runChain({ now = today(), user, plans, curve, assumptionFor }: C
   let spent = 0
 
   const out: ChainNode[] = []
+  let index = 0
 
   for (const plan of plans) {
     const rawDate = plan.prediction?.date
     if (!rawDate) continue
     const date = rawDate < now ? now : rawDate
 
-    const assumption = assumptionFor(plan.target.id)
+    const assumption = assumptionFor(plan.target.id, index)
+    index += 1
     // A guarantee removes the 50/50 outright, so the toggle has nothing to decide.
     const winFiftyFifty = guaranteed ? true : assumption.winFiftyFifty
     const needsTwoFiveStars = !winFiftyFifty
@@ -75,7 +87,8 @@ export function runChain({ now = today(), user, plans, curve, assumptionFor }: C
     const maxPulls = assumedWorstCase(pity, needsTwoFiveStars)
     const medianPulls = quantile(dist, 0.5)
 
-    const requested = assumption.pulls ?? medianPulls
+    const requested =
+      assumption.pulls ?? quantile(dist, Math.max(0, Math.min(1, assumption.percentile ?? 0.5)))
     const pulls = Math.max(0, Math.min(maxPulls, Math.round(requested)))
     const skipped = pulls === 0
 
@@ -109,6 +122,69 @@ export function runChain({ now = today(), user, plans, curve, assumptionFor }: C
   }
 
   return out
+}
+
+/* ------------------------------------------------------------------ */
+/* Luck scale                                                          */
+/* ------------------------------------------------------------------ */
+
+export type ChainPreset = 'lucky' | 'win-all' | 'typical' | 'lose-all' | 'hard-pity'
+
+/**
+ * Five coherent runs, ordered from cheapest to dearest.
+ *
+ * "Typical" alternates rather than blending, because a stop has to commit to one
+ * side of its 50/50 for the guarantee to chain correctly — and over several
+ * banners, half of them going your way *is* the ordinary case. With a single
+ * character it collapses to a win, which is also the honest answer there.
+ */
+export const CHAIN_PRESETS: Record<
+  ChainPreset,
+  { label: string; winAt: (index: number) => boolean; percentile: number }
+> = {
+  lucky: { label: 'Lucky', winAt: () => true, percentile: 0.15 },
+  'win-all': { label: 'Win 50/50', winAt: () => true, percentile: 0.5 },
+  typical: { label: 'Typical', winAt: (i) => i % 2 === 0, percentile: 0.5 },
+  'lose-all': { label: 'Lose 50/50', winAt: () => false, percentile: 0.5 },
+  'hard-pity': { label: 'Hard pity', winAt: () => false, percentile: 1 },
+}
+
+export const CHAIN_PRESET_ORDER: ChainPreset[] = [
+  'lucky',
+  'win-all',
+  'typical',
+  'lose-all',
+  'hard-pity',
+]
+
+/**
+ * ESTIMATED. Distribution over the total wishes the whole chain costs, blended
+ * across every 50/50 rather than assuming any particular outcome.
+ *
+ * This is what turns each preset into a probability: not "how likely is exactly
+ * this pattern" — which for a five-banner run is vanishingly small either way —
+ * but "how often does a run come in at this total or under".
+ */
+export function chainTotalDistribution(user: UserWishState, plans: TargetPlan[]): number[] {
+  let state = {
+    pity: clampPity(user.characterPity),
+    guaranteed: user.characterGuaranteed,
+    capturingRadianceState: user.capturingRadianceState ?? 0,
+  }
+  const dists: number[][] = []
+
+  for (const plan of plans) {
+    if (!plan.prediction?.date) continue
+    dists.push(limitedCharacterDistribution(state, 1))
+    state = { pity: 0, guaranteed: false, capturingRadianceState: 0 }
+  }
+
+  return sumDistributions(dists)
+}
+
+/** ESTIMATED. How often a run comes in at `total` wishes or under. */
+export function chanceOfTotalAtMost(totalDist: number[], total: number): number {
+  return chanceWithin(totalDist, total)
 }
 
 /** Everything the footer and the summary line need, without re-walking the chain. */

@@ -91,9 +91,14 @@ each — because the real question is never "can I afford Mitya", it is "who pay
 for Mitya".
 
 Each stop carries its own **win / lose the 50/50** switch, which changes both the
-cost and the guarantee the next character inherits. A **Typical run** toggle sets
-every dial to what each character usually costs; turn any dial and you take over
-from the model.
+cost and the guarantee the next character inherits.
+
+Above them sits a five-point luck scale you drag a highlight across — **Lucky ·
+Win 50/50 · Typical · Lose 50/50 · Hard pity** — which sets every dial and every
+50/50 at once. Each carries how often a whole run comes in at that total or
+under, so the five read as a percentile ladder rather than five opinions. Touch
+any dial or switch and the scale clears, because at that point none of the five
+describes the run any more.
 
 Nothing is written to your data. The only thing it can commit is the banner that
 is running right now.

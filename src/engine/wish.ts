@@ -133,6 +133,12 @@ export function assumedDistribution(pity: number, needsTwoFiveStars: boolean): n
   return convolve(first, fiveStarDistribution(0))
 }
 
+/** Convolve a run of independent pull-count distributions into their total. */
+export function sumDistributions(dists: number[][]): number[] {
+  if (dists.length === 0) return []
+  return dists.reduce((acc, d) => (acc.length === 0 ? d : convolve(acc, d)))
+}
+
 /** DETERMINISTIC. The ceiling that matches `assumedDistribution`. */
 export function assumedWorstCase(pity: number, needsTwoFiveStars: boolean): number {
   return HARD_PITY - clampPity(pity) + (needsTwoFiveStars ? HARD_PITY : 0)
