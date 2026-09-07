@@ -99,6 +99,12 @@ version header and opens on tap. What keeps its own node is what you plan around
 Spiral Abyss, Imaginarium Theater, Stygian Onslaught, shop resets and one-off
 gifts.
 
+The version already running is pinned to TODAY rather than sitting at its own
+start date, where it would fall behind the "show earlier events" fold and take
+*how much is still to come this patch* with it. It measures from the balance the
+TODAY marker shows rather than from `balanceAt(now)`, which already contains
+today's own accrual and would leave the card a wish short of its own total.
+
 ### Forecasting
 
 The version content baseline is 4,000 Primogems (~25 wishes), split across events,

@@ -8,7 +8,13 @@ import { PriorityGlyph } from '@/components/ui/PriorityGlyph'
 import { CharacterArt } from '@/components/character/CharacterArt'
 import { useBudget, useForecast, useTimeline } from '@/store/selectors'
 import { useStore } from '@/store/useStore'
-import { beyondHorizon, filterTimeline, type TimelineFilter, type TimelineNode } from '@/engine/timeline'
+import {
+  beyondHorizon,
+  filterTimeline,
+  isVersionHeader,
+  type TimelineFilter,
+  type TimelineNode,
+} from '@/engine/timeline'
 import { formatDay, formatRange, today } from '@/lib/date'
 import type { TargetPlan } from '@/types'
 
@@ -39,7 +45,7 @@ export function TimelineScreen() {
       return
     }
     // Versions expand in place; only standalone rewards open a sheet.
-    if (node.kind === 'version') return
+    if (isVersionHeader(node)) return
     setDetailNode(node)
   }
 

@@ -12,6 +12,7 @@ import { FORECAST_HORIZON_DAYS } from '@/data/config'
 
 export type TimelineNodeKind =
   | 'today'
+  | 'live-version'
   | 'version'
   | 'phase'
   | 'banner'
@@ -39,12 +40,15 @@ export interface TimelineNode {
   incomeKind?: IncomeKind
   /** Constituent income for the "why" breakdown. */
   breakdown?: ForecastPoint[]
-  /** Versions expected during this node's span, for version headers. */
+  /** Wishes still expected during this node's span, for version headers. */
   versionIncome?: number
+  /** Live version only: how far through it today is. */
+  dayOfVersion?: number
+  versionLength?: number
 }
 
 const KIND_SORT: Record<TimelineNodeKind, number> = {
-  today: 0, version: 1, phase: 2, banner: 3, group: 4, reward: 5,
+  today: 0, 'live-version': 1, version: 2, phase: 3, banner: 4, group: 5, reward: 6,
 }
 
 /**
@@ -101,8 +105,18 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
 
   // -- Level 1: versions ------------------------------------------------
   for (const v of visibleVersions) {
-    if (!inRange(v.startDate)) continue
-    const income = Math.max(0, curve.balanceAt(v.endDate) - curve.balanceAt(v.startDate < now ? now : v.startDate))
+    // The version already running is the one thing on this screen that is not
+    // in the future. Its header would otherwise sit at its own start date,
+    // behind the "show earlier events" fold, taking the answer to "what is
+    // left in this patch?" with it. So it is pinned to today instead.
+    const isLive = v.startDate <= now && v.endDate >= now
+    if (!isLive && !inRange(v.startDate)) continue
+
+    // A live version measures from the balance TODAY shows, not from
+    // balanceAt(now) — the latter already includes today's own accrual, which
+    // would leave the card's "+N still to come" one short of its own total.
+    const baseline = isLive ? curve.start : curve.balanceAt(v.startDate < now ? now : v.startDate)
+    const income = Math.max(0, curve.balanceAt(v.endDate) - baseline)
 
     // Fold the version's own content into its header, prorated to the part of
     // the version that is still ahead.
@@ -123,17 +137,21 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
 
     push({
       id: `version-${v.id}`,
-      kind: 'version',
-      date: v.startDate,
+      kind: isLive ? 'live-version' : 'version',
+      date: isLive ? now : v.startDate,
       endDate: v.endDate,
       title: v.name,
       subtitle: v.number,
-      showBalance: true,
+      // TODAY already carries the balance immediately above a live version.
+      showBalance: !isLive,
+      balance: baseline,
       versionId: v.id,
       version: v,
       versionIncome: income,
       amount: breakdown.reduce((sum, p) => sum + p.amount, 0),
       breakdown,
+      dayOfVersion: isLive ? daysBetween(v.startDate, now) + 1 : undefined,
+      versionLength: isLive ? daysBetween(v.startDate, v.endDate) + 1 : undefined,
     })
 
     // -- Level 3: phase change -----------------------------------------
@@ -221,14 +239,21 @@ function prorate(point: ForecastPoint, from: string, to: string): number {
   return (point.amount * overlapDays) / totalDays
 }
 
+export function isVersionHeader(node: TimelineNode): boolean {
+  return node.kind === 'version' || node.kind === 'live-version'
+}
+
 export function filterTimeline(nodes: TimelineNode[], filter: TimelineFilter): TimelineNode[] {
   if (filter === 'all') return nodes
   return nodes.filter((n) => {
     if (n.kind === 'today') return true
     switch (filter) {
-      case 'characters': return n.kind === 'banner' || n.kind === 'version' || n.kind === 'phase'
-      case 'rewards': return n.kind === 'reward' || n.kind === 'group' || n.kind === 'version'
-      case 'versions': return n.kind === 'version' || n.kind === 'phase'
+      case 'characters':
+        return isVersionHeader(n) || n.kind === 'banner' || n.kind === 'phase'
+      case 'rewards':
+        return isVersionHeader(n) || n.kind === 'reward' || n.kind === 'group'
+      case 'versions':
+        return isVersionHeader(n) || n.kind === 'phase'
     }
   })
 }

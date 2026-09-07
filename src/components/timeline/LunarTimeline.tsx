@@ -59,6 +59,8 @@ function NodeRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Timeli
       return <TodayRow node={node} />
     case 'version':
       return <VersionRow node={node} />
+    case 'live-version':
+      return <LiveVersionRow node={node} />
     case 'phase':
       return <PhaseRow node={node} />
     case 'banner':
@@ -127,40 +129,126 @@ function VersionRow({ node }: { node: TimelineNode }) {
         )}
 
         {/* The version's own content lives here rather than as a dozen nodes. */}
-        {content >= 0.5 && breakdown.length > 0 && (
-          <div className="mt-2.5">
-            <button
-              type="button"
-              onClick={() => setOpen((o) => !o)}
-              aria-expanded={open}
-              className="inline-flex items-center gap-1.5 text-[12.5px] text-frost/85 underline-offset-4 hover:underline"
-            >
-              <span className="num">+{Math.round(content)}</span>
-              from version content
-              <span aria-hidden className={clsx('text-[10px] transition-transform', open && 'rotate-180')}>
-                ▾
-              </span>
-            </button>
+        <ContentBreakdown amount={content} breakdown={breakdown} open={open} onToggle={() => setOpen((o) => !o)} />
+      </div>
+    </div>
+  )
+}
 
-            {open && (
-              <ul className="rise mt-2.5 space-y-1.5 border-l border-[var(--hairline)] pl-3">
-                {breakdown.map((p) => (
-                  <li key={p.id} className="flex items-baseline justify-between gap-3 text-[12px]">
-                    <span className="min-w-0">
-                      <span className="block truncate text-moon-muted">{p.label}</span>
-                      <span className="block text-[10.5px] text-moon-faint">
-                        {p.endDate && p.endDate !== p.date
-                          ? formatRange(p.date, p.endDate)
-                          : formatDay(p.date)}
-                      </span>
-                    </span>
-                    <span className="num shrink-0 text-moon-dim">+{p.amount.toFixed(1)}</span>
-                  </li>
-                ))}
-              </ul>
+/** Shared by both version headers: the folded-away content, on request. */
+function ContentBreakdown({
+  amount, breakdown, open, onToggle, label = 'from version content',
+}: {
+  amount: number
+  breakdown: TimelineNode['breakdown']
+  open: boolean
+  onToggle: () => void
+  label?: string
+}) {
+  if (amount < 0.5 || !breakdown || breakdown.length === 0) return null
+
+  return (
+    <div className="mt-2.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 text-[12.5px] text-frost/85 underline-offset-4 hover:underline"
+      >
+        <span className="num">+{Math.round(amount)}</span>
+        {label}
+        <span aria-hidden className={clsx('text-[10px] transition-transform', open && 'rotate-180')}>
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <ul className="rise mt-2.5 space-y-1.5 border-l border-[var(--hairline)] pl-3">
+          {breakdown.map((p) => (
+            <li key={p.id} className="flex items-baseline justify-between gap-3 text-[12px]">
+              <span className="min-w-0">
+                <span className="block truncate text-moon-muted">{p.label}</span>
+                <span className="block text-[10.5px] text-moon-faint">
+                  {p.endDate && p.endDate !== p.date ? formatRange(p.date, p.endDate) : formatDay(p.date)}
+                </span>
+              </span>
+              <span className="num shrink-0 text-moon-dim">+{p.amount.toFixed(1)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The version already running.
+ *
+ * Answers the one question the rest of the timeline cannot: how much is still
+ * to come before this patch ends.
+ */
+function LiveVersionRow({ node }: { node: TimelineNode }) {
+  const [open, setOpen] = useState(false)
+  const v = node.version
+  const day = node.dayOfVersion ?? 0
+  const length = node.versionLength ?? 0
+  const progress = length > 0 ? Math.min(100, (day / length) * 100) : 0
+
+  // Derive the increment from the two rounded balances rather than rounding it
+  // separately, or "147 now" + "+20 to come" lands on a displayed 168.
+  const balanceNow = Math.round(node.balance)
+  const balanceAtEnd = Math.round(node.balance + (node.versionIncome ?? 0))
+  const remaining = Math.max(0, balanceAtEnd - balanceNow)
+
+  return (
+    <div className="relative py-4">
+      <Glyph kind="version" live />
+      <div className="pl-[62px]">
+        <div className="panel px-4 py-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="eyebrow mb-1">Now in progress · {node.subtitle}</p>
+              <h2 className="truncate font-display text-[24px] leading-none text-moon">{node.title}</h2>
+            </div>
+            {length > 0 && (
+              <span className="num shrink-0 text-[11.5px] text-moon-dim">
+                Day {day} / {length}
+              </span>
             )}
           </div>
-        )}
+
+          {length > 0 && (
+            <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-[rgba(169,213,232,0.12)]">
+              <div
+                className="h-full rounded-full transition-[width] duration-700 ease-lunar"
+                style={{
+                  width: `${progress}%`,
+                  background: 'var(--frost)',
+                  boxShadow: '0 0 10px var(--frost)',
+                }}
+              />
+            </div>
+          )}
+
+          <div className="mt-3.5 flex items-end justify-between gap-3">
+            <div>
+              <p className="eyebrow">Still to come</p>
+              <p className="num mt-1 text-[26px] leading-none text-frost">+{remaining}</p>
+            </div>
+            <div className="text-right">
+              <p className="eyebrow">By {v ? formatDay(v.endDate) : 'version end'}</p>
+              <p className="num mt-1 text-[26px] leading-none text-moon">{balanceAtEnd}</p>
+            </div>
+          </div>
+
+          <ContentBreakdown
+            amount={node.amount ?? 0}
+            breakdown={node.breakdown}
+            open={open}
+            onToggle={() => setOpen((o) => !o)}
+            label="of it from version content"
+          />
+        </div>
       </div>
     </div>
   )
@@ -329,10 +417,10 @@ function RewardRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Time
 
 /* ------------------------------------------------------------------ */
 
-function Glyph({ kind }: { kind: 'version' | 'reward' }) {
+function Glyph({ kind, live }: { kind: 'version' | 'reward'; live?: boolean }) {
   if (kind === 'version') {
     return (
-      <span aria-hidden className="absolute z-10" style={{ left: THREAD_X - 13, top: 34 }}>
+      <span aria-hidden className="absolute z-10" style={{ left: THREAD_X - 13, top: live ? 22 : 34 }}>
         <svg width="26" height="26" viewBox="0 0 26 26">
           <circle cx="13" cy="13" r="12" fill="rgba(9,13,24,0.96)" />
           <circle cx="13" cy="13" r="7.5" fill="var(--frost)" fillOpacity="0.22" stroke="var(--frost)" strokeOpacity="0.75" strokeWidth="1" />
