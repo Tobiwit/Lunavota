@@ -84,11 +84,19 @@ it recalculates.
 
 ### Lets you test a decision before making it
 
-**What if I pull?** runs a full simulation on a copy of your state: win the 50/50,
-lose it, spend 20, go for C1, take the weapon, skip. It re-runs the entire
-planning engine and shows what each outcome does to the *rest* of your roadmap —
-which characters drop from Guaranteed to At risk. Nothing is written until you
-tap **Apply outcome**.
+**What if I pull?** lays your planned characters out in the order their banners
+arrive, each as a dial you turn to set what they cost you. Turning one re-walks
+everything below it — the wishes left, who can still be afforded, and the odds on
+each — because the real question is never "can I afford Mitya", it is "who pays
+for Mitya".
+
+Each stop carries its own **win / lose the 50/50** switch, which changes both the
+cost and the guarantee the next character inherits. A **Typical run** toggle sets
+every dial to what each character usually costs; turn any dial and you take over
+from the model.
+
+Nothing is written to your data. The only thing it can commit is the banner that
+is running right now.
 
 ### Keeps intent separate from mechanics
 

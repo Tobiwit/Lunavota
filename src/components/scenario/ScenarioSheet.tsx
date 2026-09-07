@@ -1,92 +1,104 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Sheet } from '@/components/ui/Sheet'
-import { NumberField } from '@/components/ui/controls'
-import { AffordabilityBadge } from '@/components/ui/status'
-import { PriorityGlyph } from '@/components/ui/PriorityGlyph'
+import { Toggle } from '@/components/ui/controls'
+import { PullDial } from './PullDial'
+import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { useStore } from '@/store/useStore'
-import { useBudget } from '@/store/selectors'
-import { compareBudgets, recommendStoppingPoint, runScenario, type ScenarioStep } from '@/engine/simulation'
-import { likelyFiveStarAt, HARD_PITY } from '@/engine/wish'
-import { AFFORDABILITY_LABEL } from '@/engine/planning'
+import { useBudget, useForecast } from '@/store/selectors'
+import { runChain, summariseChain, type ChainNode } from '@/engine/chain'
+import { spendWishes } from '@/engine/simulation'
+import { formatChance } from '@/lib/format'
+import { formatDay, today } from '@/lib/date'
 
 /**
  * Scenario planner.
  *
- * Simulation mode is entirely non-destructive: the sheet builds a parallel user
- * state, re-runs the whole planning engine against it, and shows the difference.
- * Real data only moves when "Apply outcome" is tapped.
+ * A chain, not a single banner: every planned character in the order they
+ * arrive, each with a dial for what it costs and a 50/50 assumption. Turning one
+ * dial re-walks everything below it, because that is the actual question — not
+ * "can I afford Mitya" but "who pays for Mitya".
+ *
+ * Entirely non-destructive. Nothing here writes to the store until the footer
+ * action is used, and that only ever commits the banner running right now.
  */
 
-type Preset =
-  | 'spend'
-  | 'first-5star'
-  | 'lose-5050'
-  | 'lose-then-win'
-  | 'constellation'
-  | 'weapon'
-  | 'skip'
-
-/**
- * Labels are literal. Without a guarantee, reaching a 5★ is not the same as
- * getting the character - calling it "the first 5★" would quietly assume a win.
- */
-function presetsFor(guaranteed: boolean): { id: Preset; label: string }[] {
-  return [
-    { id: 'spend', label: 'Spend some wishes' },
-    { id: 'first-5star', label: guaranteed ? 'Reach the first 5★' : 'Win the 50/50' },
-    { id: 'lose-5050', label: 'Lose the 50/50' },
-    { id: 'lose-then-win', label: 'Lose it, then win' },
-    { id: 'constellation', label: 'Go for C1' },
-    { id: 'weapon', label: 'Pull the weapon' },
-    { id: 'skip', label: 'Skip the banner' },
-  ]
-}
+const THREAD_X = 48
 
 export function ScenarioSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const user = useStore((s) => s.user)
   const setUser = useStore((s) => s.setUser)
   const markAcquired = useStore((s) => s.markAcquired)
   const budget = useBudget()
+  const curve = useForecast()
+  const now = today()
 
-  const [preset, setPreset] = useState<Preset>('first-5star')
-  const [spendAmount, setSpendAmount] = useState(20)
-  const [weaponAmount, setWeaponAmount] = useState(80)
-  const [targetId, setTargetId] = useState<string>('')
+  /** On: every dial follows the model. Off: the numbers are yours. */
+  const [typicalRun, setTypicalRun] = useState(true)
+  const [pulls, setPulls] = useState<Record<string, number>>({})
+  const [wins, setWins] = useState<Record<string, boolean>>({})
 
-  const plan = budget.plans.find((p) => p.target.id === targetId) ?? budget.nextPlan
-  const targetName = plan?.character.displayName ?? 'this banner'
-  const likelyAt = likelyFiveStarAt(user.characterPity)
-
-  const steps = useMemo<ScenarioStep[]>(() => {
-    switch (preset) {
-      case 'spend': return [{ kind: 'spend', wishes: spendAmount }]
-      case 'first-5star':
-        return [{ kind: 'win-5050', at: likelyAt }]
-      case 'lose-5050': return [{ kind: 'lose-5050', at: likelyAt }]
-      case 'lose-then-win': return [{ kind: 'lose-5050', at: likelyAt }, { kind: 'obtain-copy' }]
-      case 'constellation': return [{ kind: 'win-5050', at: likelyAt }, { kind: 'obtain-copy' }]
-      case 'weapon': return [{ kind: 'weapon', wishes: weaponAmount }]
-      case 'skip': return [{ kind: 'skip' }]
-    }
-  }, [preset, spendAmount, weaponAmount, likelyAt, user.characterGuaranteed])
-
-  const result = useMemo(() => runScenario(user, steps, targetName), [user, steps, targetName])
-  const simulatedBudget = useBudget(result.user)
-
-  const impacts = useMemo(
-    () => compareBudgets(budget, simulatedBudget, plan?.target.id),
-    [budget, simulatedBudget, plan],
+  const plans = useMemo(
+    () => budget.plans.filter((p) => !p.timingUnknown && p.prediction?.date),
+    [budget.plans],
   )
 
-  const obtained = result.copiesObtained > 0
-  const affordable = result.wishesSpent <= budget.ownedWishes
+  const chain = useMemo(
+    () =>
+      runChain({
+        now,
+        user,
+        plans,
+        curve,
+        assumptionFor: (id) => ({
+          winFiftyFifty: wins[id] ?? true,
+          pulls: typicalRun ? undefined : pulls[id],
+        }),
+      }),
+    [now, user, plans, curve, wins, pulls, typicalRun],
+  )
+
+  const summary = useMemo(() => summariseChain(chain), [chain])
+
+  /**
+   * The first drag leaves the model behind, so freeze what is on screen before
+   * applying it — otherwise every other dial would jump at the same moment.
+   */
+  const changePulls = (id: string, value: number) => {
+    if (typicalRun) {
+      const frozen: Record<string, number> = {}
+      for (const node of chain) frozen[node.plan.target.id] = node.pulls
+      frozen[id] = value
+      setPulls(frozen)
+      setTypicalRun(false)
+      return
+    }
+    setPulls((prev) => ({ ...prev, [id]: value }))
+  }
+
+  const toggleWin = (id: string, next: boolean) => {
+    setWins((prev) => ({ ...prev, [id]: next }))
+    // The cost of this stop just changed shape, so drop a hand-set number rather
+    // than leaving a value that meant something else a moment ago.
+    setPulls((prev) => {
+      const rest = { ...prev }
+      delete rest[id]
+      return rest
+    })
+  }
+
+  // Only a banner that is actually running can be committed to real data.
+  const liveNode = chain.find((n) => !n.skipped && (n.plan.prediction?.date ?? '') <= now)
 
   const apply = () => {
-    setUser(result.user)
-    if (obtained && plan && result.copiesObtained > plan.target.constellationTarget) {
-      markAcquired(plan.target.id)
-    }
+    if (!liveNode) return
+    setUser({
+      ...spendWishes(user, liveNode.pulls),
+      characterPity: 0,
+      characterGuaranteed: false,
+      capturingRadianceState: 0,
+    })
+    markAcquired(liveNode.plan.target.id)
     onClose()
   }
 
@@ -95,153 +107,178 @@ export function ScenarioSheet({ open, onClose }: { open: boolean; onClose: () =>
       open={open}
       onClose={onClose}
       eyebrow="Simulation — nothing is saved yet"
-      title={`What if you pull ${targetName}?`}
+      title="What if you pull?"
       footer={
         <div className="flex gap-2.5">
           <button type="button" className="btn btn-quiet flex-1" onClick={onClose}>
-            Discard
+            Done
           </button>
-          <button
-            type="button"
-            className="btn btn-primary flex-[2]"
-            onClick={apply}
-            disabled={preset === 'skip' || !affordable}
-          >
-            Apply outcome
-          </button>
+          {liveNode && (
+            <button type="button" className="btn btn-primary flex-[2]" onClick={apply}>
+              Apply {liveNode.plan.character.displayName}
+            </button>
+          )}
         </div>
       }
     >
-      {/* -- which target ------------------------------------------------ */}
-      {budget.plans.length > 1 && (
-        <div className="mb-5">
-          <p className="eyebrow mb-2.5">Pulling for</p>
-          <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
-            {budget.plans.map((p) => (
-              <button
-                key={p.target.id}
-                type="button"
-                onClick={() => setTargetId(p.target.id)}
-                className={clsx('chip shrink-0', p.target.id === plan?.target.id && 'chip-on')}
-              >
-                <PriorityGlyph priority={p.target.priority} size={11} />
-                {p.character.displayName}
-              </button>
-            ))}
+      {chain.length === 0 ? (
+        <p className="py-10 text-center text-[13px] leading-relaxed text-moon-dim">
+          Nothing on your wishlist has a banner placement yet, so there is no order to pull them in. Add a character
+          with a known or expected banner and this becomes a chain you can turn.
+        </p>
+      ) : (
+        <>
+          <div className="panel-flat mb-5 px-4">
+            <Toggle
+              checked={typicalRun}
+              onChange={(v) => setTypicalRun(v)}
+              label="Typical run"
+              hint="Sets every dial to what each character usually costs. Turn a dial to take over."
+            />
           </div>
-        </div>
-      )}
 
-      {/* -- scenario ---------------------------------------------------- */}
-      <p className="eyebrow mb-2.5">What happens</p>
-      <div className="flex flex-wrap gap-2">
-        {presetsFor(user.characterGuaranteed).map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => setPreset(p.id)}
-            className={clsx('chip', preset === p.id && 'chip-on')}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+          <div className="mb-5 flex items-baseline justify-between gap-3">
+            <p className="text-[13px] text-moon-dim">
+              <span className="num text-moon">{budget.ownedWishes}</span> wishes now ·{' '}
+              <span className="num text-moon">{summary.totalSpent}</span> spent across{' '}
+              <span className="num text-moon">{summary.obtained}</span>
+            </p>
+          </div>
 
-      {preset === 'spend' && (
-        <div className="mt-5">
-          <NumberField
-            label="Wishes spent"
-            value={spendAmount}
-            onChange={setSpendAmount}
-            max={Math.min(budget.ownedWishes, HARD_PITY - user.characterPity)}
-            step={10}
-          />
-        </div>
-      )}
-      {preset === 'weapon' && (
-        <div className="mt-5">
-          <NumberField label="Wishes on the weapon banner" value={weaponAmount} onChange={setWeaponAmount} step={10} />
-        </div>
-      )}
-
-      {/* -- outcome ----------------------------------------------------- */}
-      <div key={preset + result.wishesSpent} className="rise panel mt-6 overflow-hidden">
-        <div className="grid grid-cols-3 divide-x divide-[var(--hairline)]">
-          <Cell label="Spent" value={result.wishesSpent} tone={affordable ? 'default' : 'danger'} />
-          <Cell label="Remaining" value={Math.max(0, budget.ownedWishes - result.wishesSpent)} />
-          <Cell label="New pity" value={result.user.characterPity} />
-        </div>
-
-        <div className="rule" />
-
-        <ul className="space-y-2 px-4 py-3.5 text-[13px] leading-relaxed">
-          {result.log.map((line, i) => (
-            <li key={i} className="text-moon-muted">
-              {line}
-            </li>
-          ))}
-          {!affordable && (
-            <li className="text-danger">
-              You do not have enough wishes for this run — it needs {result.wishesSpent - budget.ownedWishes} more.
-            </li>
-          )}
-          {result.gainedGuarantee && (
-            <li className="text-success">✓ Your next limited 5★ is guaranteed.</li>
-          )}
-        </ul>
-      </div>
-
-      {/* -- knock-on effects -------------------------------------------- */}
-      {impacts.length > 0 && (
-        <div className="mt-6">
-          <p className="eyebrow mb-2.5">What it does to the rest of your roadmap</p>
-          <ul className="space-y-2">
-            {impacts.map((impact) => (
-              <li
-                key={impact.targetId}
-                className="flex items-center justify-between gap-3 rounded-xl border border-[var(--hairline)] bg-[rgba(8,12,22,0.42)] px-4 py-3"
-              >
-                <span className="min-w-0 truncate text-[14px] text-moon">{impact.name}</span>
-                <span className="flex shrink-0 items-center gap-2 text-[12px]">
-                  {impact.worsened ? (
-                    <>
-                      <span className="text-moon-faint line-through">{AFFORDABILITY_LABEL[impact.before]}</span>
-                      <span aria-hidden className="text-moon-faint">→</span>
-                      <AffordabilityBadge status={impact.after} />
-                    </>
-                  ) : (
-                    <AffordabilityBadge status={impact.after} />
-                  )}
-                </span>
-              </li>
+          <ol className="relative">
+            {/* The same thread the timeline runs on. */}
+            <span
+              aria-hidden
+              className="absolute top-4 bottom-4 w-px"
+              style={{
+                left: THREAD_X,
+                background:
+                  'linear-gradient(180deg, transparent, rgba(169,213,232,0.28) 8%, rgba(169,213,232,0.18) 70%, transparent)',
+              }}
+            />
+            {chain.map((node) => (
+              <ChainRow
+                key={node.plan.target.id}
+                node={node}
+                onPulls={(v) => changePulls(node.plan.target.id, v)}
+                onWin={(v) => toggleWin(node.plan.target.id, v)}
+              />
             ))}
-          </ul>
+          </ol>
 
-          <p className="mt-4 rounded-xl border border-[var(--hairline)] bg-[rgba(169,213,232,0.06)] px-4 py-3.5 text-[13px] leading-relaxed text-moon-muted">
-            {recommendStoppingPoint(impacts, result.user.characterGuaranteed, targetName)}
+          {summary.firstShortfall && (
+            <p className="mt-4 rounded-xl border border-[rgba(199,137,145,0.3)] bg-[rgba(199,137,145,0.07)] px-4 py-3 text-[12.5px] leading-relaxed text-danger">
+              This plan runs out at {summary.firstShortfall.plan.character.displayName} — it needs{' '}
+              <span className="num">{summary.firstShortfall.shortBy}</span> more wishes than you are forecast to
+              have by then.
+            </p>
+          )}
+
+          <p className="mt-5 text-[11.5px] leading-relaxed text-moon-faint">
+            Each dial is what a character costs you, not a budget cap — so everyone on the chain is obtained, and the
+            percentage is how often a run goes that well or better. Dial one to zero to skip that banner.
           </p>
-        </div>
+        </>
       )}
     </Sheet>
   )
 }
 
-function Cell({
-  label, value, tone = 'default',
+/* ------------------------------------------------------------------ */
+
+function ChainRow({
+  node, onPulls, onWin,
 }: {
-  label: string
-  value: number
-  tone?: 'default' | 'danger'
+  node: ChainNode
+  onPulls: (value: number) => void
+  onWin: (value: boolean) => void
 }) {
+  const { plan } = node
+  const accent = priorityAccent(plan.target.priority)
+  const short = node.shortBy > 0
+
   return (
-    <div className="px-3 py-3.5 text-center">
-      <div
-        className="num font-display text-[24px] leading-none"
-        style={{ color: tone === 'danger' ? 'var(--danger)' : 'var(--moon)' }}
-      >
-        {value}
+    <li className="relative flex gap-4 pb-5">
+      <PullDial
+        character={plan.character}
+        value={node.pulls}
+        max={node.maxPulls}
+        onChange={onPulls}
+        accent={accent}
+        muted={node.skipped}
+        label={`Wishes spent on ${plan.character.displayName}`}
+      />
+
+      <div className="min-w-0 flex-1 pt-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="min-w-0 truncate font-display text-[19px] leading-tight text-moon">
+            {plan.character.displayName}
+          </h3>
+          <span className="shrink-0 text-[11px] text-moon-faint">{formatDay(node.date)}</span>
+        </div>
+
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="inline-flex items-center gap-1.5">
+            <PriorityGlyph priority={plan.target.priority} size={10} />
+            <span className="text-[10.5px] uppercase tracking-wide2" style={{ color: accent }}>
+              {PRIORITY_LABEL[plan.target.priority]}
+            </span>
+          </span>
+          <span className="text-[11px] text-moon-dim">C{plan.target.constellationTarget}</span>
+        </div>
+
+        {node.skipped ? (
+          <p className="mt-2.5 text-[13px] text-moon-dim">Skipped — nothing spent here.</p>
+        ) : (
+          <>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="num text-[24px] leading-none text-moon">{node.pulls}</span>
+              <span className="text-[12px] text-moon-dim">wishes</span>
+              <span className="num ml-1 text-[13px]" style={{ color: accent }}>
+                {formatChance(node.chance)}
+              </span>
+              <span className="text-[11.5px] text-moon-dim">of runs</span>
+            </div>
+
+            <p className={clsx('mt-1.5 text-[12px]', short ? 'text-danger' : 'text-moon-dim')}>
+              {short ? (
+                <>
+                  <span className="num">{node.shortBy}</span> short of the{' '}
+                  <span className="num">{node.available}</span> forecast here
+                </>
+              ) : (
+                <>
+                  <span className="num text-moon-muted">{node.balanceAfter}</span> left of{' '}
+                  <span className="num text-moon-muted">{node.available}</span>
+                </>
+              )}
+            </p>
+          </>
+        )}
+
+        <div className="mt-2.5">
+          {node.onGuarantee ? (
+            <span className="chip text-[11px]" style={{ borderColor: 'rgba(169,205,189,0.35)', color: 'var(--success)' }}>
+              Guaranteed — no 50/50
+            </span>
+          ) : (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={node.winFiftyFifty}
+              onClick={() => onWin(!node.winFiftyFifty)}
+              className={clsx('chip text-[11px]', node.winFiftyFifty && 'chip-on')}
+            >
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: node.winFiftyFifty ? 'var(--success)' : 'var(--danger)' }}
+              />
+              {node.winFiftyFifty ? 'Win the 50/50' : 'Lose the 50/50'}
+            </button>
+          )}
+        </div>
       </div>
-      <div className="eyebrow mt-1.5">{label}</div>
-    </div>
+    </li>
   )
 }

@@ -35,7 +35,8 @@ with no React in it:
 engine/wish.ts         Character Event Wish mechanics
 engine/forecast.ts     Calendar-aware income projection
 engine/planning.ts     Reservation, protection and affordability
-engine/simulation.ts   Non-destructive "what if I pull?"
+engine/simulation.ts   Non-destructive single-banner outcomes
+engine/chain.ts        Chained "what if I pull?" across the whole wishlist
 engine/predictions.ts  Weighted banner placement
 engine/timeline.ts     Timeline node assembly and grouping
 ```

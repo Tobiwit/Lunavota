@@ -119,6 +119,25 @@ function singleCopyDistribution(state: BannerState): number[] {
   return add(winBranch, loseBranch)
 }
 
+/**
+ * ESTIMATED. Wishes to the featured character under a *fixed* 50/50 assumption,
+ * rather than averaged over both branches.
+ *
+ * The scenario planner needs this: once someone has said "assume I win this
+ * one", the honest distribution is the one for that branch alone, not the
+ * blended one `limitedCharacterDistribution` returns.
+ */
+export function assumedDistribution(pity: number, needsTwoFiveStars: boolean): number[] {
+  const first = fiveStarDistribution(pity)
+  if (!needsTwoFiveStars) return first
+  return convolve(first, fiveStarDistribution(0))
+}
+
+/** DETERMINISTIC. The ceiling that matches `assumedDistribution`. */
+export function assumedWorstCase(pity: number, needsTwoFiveStars: boolean): number {
+  return HARD_PITY - clampPity(pity) + (needsTwoFiveStars ? HARD_PITY : 0)
+}
+
 /** ESTIMATED. P(obtaining the target within `wishes`). */
 export function chanceWithin(dist: number[], wishes: number): number {
   if (wishes <= 0) return 0
