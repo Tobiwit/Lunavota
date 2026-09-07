@@ -184,8 +184,10 @@ function ContentBreakdown({
 /**
  * The version already running.
  *
- * Answers the one question the rest of the timeline cannot: how much is still
- * to come before this patch ends.
+ * Structurally identical to any other version header - glyph, eyebrow, display
+ * name, figure on the right. It is a version, not a card, and boxing it made it
+ * read as a character banner. Only the light on the glyph and the progress
+ * hairline mark it as the one happening now.
  */
 function LiveVersionRow({ node }: { node: TimelineNode }) {
   const [open, setOpen] = useState(false)
@@ -201,54 +203,51 @@ function LiveVersionRow({ node }: { node: TimelineNode }) {
   const remaining = Math.max(0, balanceAtEnd - balanceNow)
 
   return (
-    <div className="relative py-4">
+    <div className="relative pb-4 pt-8">
       <Glyph kind="version" live />
       <div className="pl-[62px]">
-        <div className="panel px-4 py-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="eyebrow mb-1">Now in progress · {node.subtitle}</p>
-              <h2 className="truncate font-display text-[24px] leading-none text-moon">{node.title}</h2>
-            </div>
-            {length > 0 && (
-              <span className="num shrink-0 text-[11.5px] text-moon-dim">
-                Day {day} / {length}
-              </span>
-            )}
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="eyebrow mb-1">Now in progress · {node.subtitle}</p>
+            <h2 className="font-display text-[27px] leading-none text-moon">{node.title}</h2>
           </div>
-
-          {length > 0 && (
-            <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-[rgba(169,213,232,0.12)]">
-              <div
-                className="h-full rounded-full transition-[width] duration-700 ease-lunar"
-                style={{
-                  width: `${progress}%`,
-                  background: 'var(--frost)',
-                  boxShadow: '0 0 10px var(--frost)',
-                }}
-              />
-            </div>
-          )}
-
-          <div className="mt-3.5 flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow">Still to come</p>
-              <p className="num mt-1 text-[26px] leading-none text-frost">+{remaining}</p>
-            </div>
-            <div className="text-right">
-              <p className="eyebrow">By {v ? formatDay(v.endDate) : 'version end'}</p>
-              <p className="num mt-1 text-[26px] leading-none text-moon">{balanceAtEnd}</p>
-            </div>
+          <div className="shrink-0 text-right">
+            <div className="num text-[21px] leading-none text-moon-muted">{balanceAtEnd}</div>
+            <div className="eyebrow mt-1">by {v ? formatDay(v.endDate) : 'version end'}</div>
           </div>
-
-          <ContentBreakdown
-            amount={node.amount ?? 0}
-            breakdown={node.breakdown}
-            open={open}
-            onToggle={() => setOpen((o) => !o)}
-            label="of it from version content"
-          />
         </div>
+
+        {/* Progress as a hairline, at the weight every other divider uses. */}
+        {length > 0 && (
+          <div className="mt-3 h-px w-full bg-[rgba(169,213,232,0.13)]">
+            <div
+              className="h-px transition-[width] duration-700 ease-lunar"
+              style={{
+                width: `${progress}%`,
+                background: 'var(--frost)',
+                boxShadow: '0 0 8px var(--frost)',
+              }}
+            />
+          </div>
+        )}
+
+        <p className="mt-2.5 text-[12.5px] text-moon-dim">
+          Still to come <span className="num text-moon-muted">+{remaining}</span> wishes
+          {length > 0 && (
+            <>
+              {' · '}
+              <span className="num">day {day}</span> of {length}
+            </>
+          )}
+        </p>
+
+        <ContentBreakdown
+          amount={node.amount ?? 0}
+          breakdown={node.breakdown}
+          open={open}
+          onToggle={() => setOpen((o) => !o)}
+          label="of it from version content"
+        />
       </div>
     </div>
   )
@@ -420,13 +419,35 @@ function RewardRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Time
 function Glyph({ kind, live }: { kind: 'version' | 'reward'; live?: boolean }) {
   if (kind === 'version') {
     return (
-      <span aria-hidden className="absolute z-10" style={{ left: THREAD_X - 13, top: live ? 22 : 34 }}>
+      <span
+        aria-hidden
+        className="absolute z-10"
+        style={{
+          left: THREAD_X - 13,
+          top: 34,
+          filter: live ? 'drop-shadow(0 0 8px rgba(169,213,232,0.55))' : undefined,
+        }}
+      >
         <svg width="26" height="26" viewBox="0 0 26 26">
           <circle cx="13" cy="13" r="12" fill="rgba(9,13,24,0.96)" />
-          <circle cx="13" cy="13" r="7.5" fill="var(--frost)" fillOpacity="0.22" stroke="var(--frost)" strokeOpacity="0.75" strokeWidth="1" />
-          {/* Eclipse notch — the version's identity mark. */}
-          <circle cx="16.4" cy="10.6" r="6" fill="rgba(9,13,24,0.96)" />
-          <circle cx="13" cy="13" r="11.4" fill="none" stroke="var(--frost)" strokeOpacity="0.2" strokeWidth="0.6" strokeDasharray="1.5 4" />
+          <circle
+            cx="13" cy="13" r="7.5"
+            fill="var(--frost)"
+            fillOpacity={live ? 0.5 : 0.22}
+            stroke="var(--frost)"
+            strokeOpacity={live ? 1 : 0.75}
+            strokeWidth="1"
+          />
+          {/* Eclipse notch — the version's identity mark. The running version is
+              full, so it keeps its whole disc. */}
+          {!live && <circle cx="16.4" cy="10.6" r="6" fill="rgba(9,13,24,0.96)" />}
+          <circle
+            cx="13" cy="13" r="11.4"
+            fill="none" stroke="var(--frost)"
+            strokeOpacity={live ? 0.45 : 0.2}
+            strokeWidth="0.6"
+            strokeDasharray="1.5 4"
+          />
         </svg>
       </span>
     )
