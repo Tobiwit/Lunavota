@@ -197,15 +197,17 @@ export function collectRawIncome(input: ForecastInput): RawIncome[] {
     const start = item.availableDate ?? version.startDate
     const end = item.endDate
     if ((end ?? start) < now || start > horizon) continue
+
+    const remaining = remainingShare(start, end, now)
     out.push({
       id: item.id,
       kind: categoryToKind(item.category),
       label: item.label,
       detail: version.name,
-      date: start < now ? now : start,
+      date: remaining.from,
       endDate: end,
-      primogems: item.primogems,
-      intertwinedFates: item.intertwinedFates,
+      primogems: item.primogems * remaining.share,
+      intertwinedFates: item.intertwinedFates * remaining.share,
       adjustable: item.completionAdjustable,
       versionId: item.versionId,
     })
@@ -219,20 +221,47 @@ export function collectRawIncome(input: ForecastInput): RawIncome[] {
     const fates = ev.income.intertwinedFates ?? 0
     if (primos === 0 && fates === 0) continue
     if ((ev.endDate ?? ev.date) < now || ev.date > horizon) continue
+
+    const remaining = remainingShare(ev.date, ev.endDate, now)
     out.push({
       id: ev.id,
       kind: 'misc',
       label: ev.label,
-      date: ev.date < now ? now : ev.date,
+      date: remaining.from,
       endDate: ev.endDate,
-      primogems: primos,
-      intertwinedFates: fates,
+      primogems: primos * remaining.share,
+      intertwinedFates: fates * remaining.share,
       adjustable: ev.completionAdjustable ?? false,
       versionId: ev.versionId,
     })
   }
 
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+}
+
+/**
+ * The part of a windowed reward that is still ahead.
+ *
+ * Anything spread across a window accrues evenly through it, so half a window
+ * gone is half the reward gone. Clamping the window forward to today without
+ * clamping the amount is what let a version's events stay worth as much on the
+ * last day of the patch as on the first.
+ *
+ * Single-date rewards are all-or-nothing and never reach this — a past one is
+ * dropped before it gets here. Dailies and Welkin size themselves from today
+ * already, so they are unaffected.
+ */
+function remainingShare(
+  start: string,
+  end: string | undefined,
+  now: string,
+): { from: string; share: number } {
+  if (start >= now) return { from: start, share: 1 }
+  if (!end || end <= start) return { from: now, share: 1 }
+
+  const total = daysBetween(start, end) + 1
+  const left = daysBetween(now, end) + 1
+  return { from: now, share: Math.max(0, Math.min(1, left / total)) }
 }
 
 function categoryToKind(c: VersionIncomeItem['category']): IncomeKind {

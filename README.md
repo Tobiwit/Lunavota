@@ -112,7 +112,12 @@ The version content baseline is 4,000 Primogems (~25 wishes), split across event
 quests, exploration, maintenance/codes and misc, and **distributed across dates**
 so the forecast can answer "how many wishes will I have on the 17th?" rather than
 "how many are in this patch?". Dailies, Welkin, Battle Pass, endgame resets and
-the shop are modelled separately so nothing is counted twice. Gifts (anniversary,
+the shop are modelled separately so nothing is counted twice.
+
+Anything spread across a window is prorated to the part of that window still
+ahead — half a version's events are gone once half their window is. Clamping the
+window forward to today without clamping the amount is the bug that made a
+patch's events worth as much on its last day as on its first. Gifts (anniversary,
 Lantern Rite) sit on top of the baseline rather than changing it.
 
 ### Predictions
