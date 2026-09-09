@@ -28,7 +28,7 @@ import { buildSeedPredictions } from '@/data/seedPredictions'
 import { today } from '@/lib/date'
 import { addWishes, spendWishes } from '@/engine/simulation'
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 const DEFAULT_USER: UserWishState = {
   intertwinedFates: 0,
@@ -338,6 +338,22 @@ export const useStore = create<AppState>()(
                 : v,
             )
           }
+        }
+
+        // v4: the priority bands were re-cut into five. The old "Want" became
+        // "Dream" - same intent, and its 155-wish reserve is what the new Dream
+        // holds - and the old, explicitly conditional "Interested" became the
+        // new "Want", the nearest band that still spends on an ordinary run.
+        //
+        // Nobody's ranking changes relative to anyone else's, so no wishlist is
+        // silently reordered. Re-sorting a target into Try or Luxury is a
+        // judgement only its owner can make.
+        if (fromVersion < 4 && state?.targets) {
+          const rename: Record<string, Priority> = { want: 'dream', interested: 'want' }
+          state.targets = state.targets.map((t) => {
+            const next = rename[t.priority as string]
+            return next ? { ...t, priority: next } : t
+          })
         }
 
         return state as AppState

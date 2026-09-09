@@ -6,12 +6,12 @@ import { CharacterSplash } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, PRIORITY_MEANING } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge, PredictionChip, RangeValue } from '@/components/ui/status'
 import { useStore } from '@/store/useStore'
-import { AFFORDABILITY_MEANING } from '@/engine/planning'
+import { affordabilityLabel, affordabilityMeaning, PRIORITY_ORDER, reservationNote } from '@/engine/planning'
 import { confidenceDescription, confidenceLabel, phaseLabel } from '@/engine/predictions'
 import { elementLabel } from '@/lib/assets'
 import { formatDay } from '@/lib/date'
 import { formatChance } from '@/lib/format'
-import type { BannerPhase, Priority, PullRule, PullRuleKind, TargetPlan } from '@/types'
+import type { BannerPhase, PullRule, PullRuleKind, TargetPlan } from '@/types'
 
 /** Selectable reasons. Kept short and human — these are notes to your future self. */
 const REASONS = [
@@ -30,7 +30,6 @@ const PULL_RULES: { kind: PullRuleKind; label: string; needsValue?: string }[] =
   { kind: 'custom', label: 'Custom' },
 ]
 
-const PRIORITIES: Priority[] = ['must', 'want', 'interested', 'luxury']
 
 export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; onClose: () => void }) {
   const updateTarget = useStore((s) => s.updateTarget)
@@ -85,7 +84,7 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
             {character.region ? ` · ${character.region}` : ''}
           </p>
           <div className="mt-3">
-            <AffordabilityBadge status={plan.status} />
+            <AffordabilityBadge status={plan.status} label={affordabilityLabel(plan)} />
           </div>
         </div>
       </header>
@@ -119,17 +118,17 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
           </div>
 
           <p className="mt-4 text-[13px] leading-relaxed text-moon-muted">
-            {AFFORDABILITY_MEANING[plan.status]}
+            {affordabilityMeaning(plan)}
           </p>
 
-          {/* At full certainty the planned figure *is* the guarantee; saying both
-              would only repeat the same number back. */}
-          {plan.targetConfidence < 1 && (
+          {reservationNote(plan) && (
+            <p className="mt-2.5 text-[12.5px] leading-relaxed text-moon-dim">{reservationNote(plan)}</p>
+          )}
+
+          {plan.reservedStretch > 0 && (
             <p className="mt-2.5 text-[12.5px] leading-relaxed text-moon-dim">
-              {PRIORITY_LABEL[target.priority]} targets are planned to{' '}
-              {Math.round(plan.targetConfidence * 100)}% certainty —{' '}
-              <span className="num text-moon-muted">{plan.plannedCost}</span> wishes. A full guarantee regardless of
-              luck would need <span className="num text-moon-muted">{cost.worstCase}</span>.
+              <span className="num text-moon-muted">{plan.reservedStretch}</span> of what is set aside is a stretch —
+              wishes nothing else laid claim to. Add a target above this one and it goes first.
             </p>
           )}
 
@@ -151,14 +150,13 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
           <div className="mt-4">
             <Why label="How is this worked out?">
               <p>
-                Worst case assumes you lose every 50/50 and reach hard pity every time — {cost.worstCase} wishes for
-                C{target.constellationTarget}. That number never depends on luck.
+                {target.priority === 'try'
+                  ? `A Try never spends past its first 5-star, so ${cost.worstCase} wishes is the whole of it — hard pity, and nothing beyond. That ceiling never depends on luck; which character it hands you does.`
+                  : `Worst case assumes you lose every 50/50 and reach hard pity every time — ${cost.worstCase} wishes for C${target.constellationTarget}. That number never depends on luck.`}
               </p>
               <p className="mt-2">
-                {PRIORITY_LABEL[target.priority]} targets are planned to{' '}
-                {Math.round(plan.targetConfidence * 100)}% certainty, which is {plan.plannedCost} wishes. With the{' '}
-                {plan.reserved} actually set aside, the chance of reaching C{target.constellationTarget} is about{' '}
-                {formatChance(plan.successChance)}.
+                With the {plan.reserved} actually set aside, the chance of reaching C
+                {target.constellationTarget} is about {formatChance(plan.successChance)}.
               </p>
               <p className="mt-2">
                 Those odds approximate a probability curve HoYoverse has never fully published, so Lunavota keeps
@@ -206,7 +204,7 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
       {/* -- priority ---------------------------------------------------- */}
       <Section title="Priority">
         <div className="grid grid-cols-2 gap-2">
-          {PRIORITIES.map((p) => (
+          {PRIORITY_ORDER.map((p) => (
             <button
               key={p}
               type="button"
@@ -366,6 +364,7 @@ export function TargetDetailSheet({ plan, onClose }: { plan: TargetPlan | null; 
           <Figure label="Reserved" value={plan.reserved} />
           <Figure label="From your pool" value={plan.reservedFromPool} />
           <Figure label="From income" value={plan.reservedFromIncome} />
+          {plan.reservedStretch > 0 && <Figure label="Stretch" value={plan.reservedStretch} />}
         </div>
 
         <div className="mt-4 space-y-4">

@@ -63,30 +63,44 @@ Reservations are allocated greedily by priority. Future income is consumed
 **latest-first**, so a distant Must target does not starve a nearer Want of income
 that arrives long before the Must banner opens.
 
-Only **Must** and **Want** can hold back wishes you already have. *Interested* is
-explicitly conditional and *Luxury* is explicitly for spare resources, so neither
-is allowed to drive "safe to spend" toward zero — they are still costed, still
-graded, but they draw on projected income instead.
+Every band but **Luxury** can hold back wishes you already have. Luxury is
+explicitly for spare resources, so it is never allowed to drive "safe to spend"
+toward zero — it is still costed and still graded, but it draws only on what is
+left over. Neither does a **stretch**, whatever its owner's band.
 
-Priority decides how certain the plan insists on being; mode decides how hard it
-works below a Must. `TARGET_CONFIDENCE` maps the two onto a percentile of the cost
-distribution, and mode also picks which edge of the income band a decision may
-lean on.
+Allocation runs in two passes. The first covers every target's `planned`
+reservation in priority order — that is the commitment. The second hands out what
+is still unclaimed afterwards, so a Want reaches for its stretch only once nothing
+with a firmer claim needs those wishes, and a Luxury only after that. Because the
+passes are ordered, a stretch can never take income a base reservation needed.
 
-For a C0 limited 5★ from zero pity those percentiles land at:
+`REFERENCE_RESERVE` states each band as the wishes it sets aside for the ordinary
+case — a C0 goal from zero pity — and `confidenceForReserve` converts that to a
+quantile of the cost curve once. The engine plans with the quantile, which is what
+lets banked pity and a constellation goal above C0 move the reservation; a literal
+155 would be nonsense for a C2 target and wasteful at 70 pity. Mode also picks
+which edge of the income band a decision may lean on.
 
-| Certainty | Wishes | |
-|---|---:|---|
-| 0.50 | 80 | the 50/50 went your way |
-| 0.80 | 150 | Balanced funds a Want here |
-| 0.90 | 155 | |
-| 1.00 | 180 | deterministic — Musts are planned here |
+In Balanced mode, for a C0 limited 5★ from zero pity:
+
+| Band | Sets aside | Stretches to | |
+|---|---:|---:|---|
+| Must | 180 | — | deterministic — the full guarantee |
+| Dream | 155 | — | p90 |
+| Want | 120 | 155 | p70, stretching to p90 |
+| Try | 90 | — | hard pity for one 5★ — deterministic |
+| Luxury | 0 | 75 | p27, entirely from what is spare |
 
 The curve is deliberately not linear: half the time the 50/50 is won and the cost
 stops near 80, after which the second 5★ pushes everything toward the 180 ceiling,
 so the tiers between 150 and 180 buy very little. A Must is planned to the full
 guarantee in every mode but Risky, because that is what "I would strongly regret
 missing them" has to mean.
+
+**Try** carries a stopping rule rather than a certainty, so no mode moves it: it
+budgets to the first 5★, won or lost. Its odds are discounted by the 50/50, since
+reaching *a* 5★ is not reaching *that* one — and a fully funded Try reads as
+"Funded", never "Guaranteed", because only its budget is certain.
 
 Cards show what this buys — **set aside**, **needs**, and the resulting **chance** —
 rather than the banner-timing confidence, which is a different question and is

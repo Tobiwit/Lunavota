@@ -343,8 +343,17 @@ function BannerRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Time
             <span className="text-[12px] text-moon-dim">chance</span>
           </div>
           <p className="mt-1.5 text-[12px] text-moon-dim">
-            <span className="num text-moon-muted">{plan.reserved}</span> of{' '}
-            <span className="num text-moon-muted">{plan.plannedCost}</span> set aside
+            {plan.plannedCost > 0 ? (
+              <>
+                <span className="num text-moon-muted">{plan.reserved - plan.reservedStretch}</span> of{' '}
+                <span className="num text-moon-muted">{plan.plannedCost}</span> set aside
+              </>
+            ) : (
+              <>Nothing held back</>
+            )}
+            {plan.reservedStretch > 0 && (
+              <> · <span className="num text-moon-muted">+{plan.reservedStretch}</span> spare</>
+            )}
           </p>
 
           <p className="mt-3 text-[12.5px] leading-relaxed text-moon-muted">
@@ -479,6 +488,14 @@ function Balance({ value }: { value: number }) {
 
 function bannerSentence(plan: NonNullable<TimelineNode['plan']>): string {
   const short = Math.max(0, plan.plannedCost - plan.reserved)
+
+  // A band that reserves nothing has no plan to be short of, so every sentence
+  // below would be measuring against zero and calling the result funded.
+  if (plan.plannedCost === 0) {
+    return plan.reserved > 0
+      ? `Nothing is held back for this. ${plan.reserved} wishes are spare enough to reach for it anyway.`
+      : 'Nothing is held back for this, and there is nothing spare to reach with.'
+  }
 
   if (plan.status === 'guaranteed') {
     return 'Fully funded by the time this opens, even on the worst possible run.'

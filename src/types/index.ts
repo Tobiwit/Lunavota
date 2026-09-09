@@ -173,7 +173,13 @@ export interface UserWishState {
   ignoreFutureIncome: boolean
 }
 
-export type Priority = 'must' | 'want' | 'interested' | 'luxury'
+/**
+ * Five bands of intent, ordered by how much they are allowed to cost.
+ *
+ * `try` is the odd one: it is not a certainty level but a stopping rule — one
+ * 5-star's worth of wishes, and if the 50/50 goes the wrong way you walk away.
+ */
+export type Priority = 'must' | 'dream' | 'want' | 'try' | 'luxury'
 
 export type PullRuleKind =
   | 'get-c0'
@@ -276,6 +282,12 @@ export interface TargetCost {
   expected: number
   /** Cost at the certainty this target is planned to. */
   planned: number
+  /**
+   * Opportunistic ceiling. What this target would be topped up to if wishes are
+   * left over once every other target's `planned` is covered. Equal to `planned`
+   * for priorities that do not stretch.
+   */
+  stretch: number
 }
 
 export interface ResolvedPrediction {
@@ -318,6 +330,11 @@ export interface TargetPlan {
   reservedFromPool: number
   /** Wishes this target expects to draw from future income. */
   reservedFromIncome: number
+  /**
+   * Of `reserved`, the part that is only a top-up from wishes nobody else
+   * claimed. Conditional by nature — it is the first thing a new target takes.
+   */
+  reservedStretch: number
   reserved: number
   /** Resources forecast to exist when the banner opens. */
   balanceAtBanner: number
@@ -343,6 +360,11 @@ export interface Budget {
   ownedFromPrimos: number
   protectedWishes: number
   free: number
+  /**
+   * Part of `free` that a stretch would soak up. Still counted as free, because
+   * a stretch is an opportunity rather than a commitment.
+   */
+  stretchedFromPool: number
   plans: TargetPlan[]
   nextPlan?: TargetPlan
 }

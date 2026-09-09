@@ -126,7 +126,7 @@ export function TimelineScreen() {
                     </span>
                   </span>
                   <span className="shrink-0 num text-[11.5px] text-moon-faint">
-                    {plan.plannedCost} needed
+                    {plan.plannedCost > 0 ? plan.plannedCost : plan.cost.stretch} needed
                   </span>
                 </button>
               </li>

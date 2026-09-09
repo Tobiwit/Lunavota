@@ -50,21 +50,33 @@ This is the line the whole app is built around, and it never blurs it:
 - **Estimated.** Everything else rests on a soft-pity curve HoYoverse has never
   published. It appears as *likely* / *at risk* and as odds rounded to 5%.
 
-Priority decides how certain the plan insists on being. For a C0 limited 5★ from
-zero pity:
+Priority decides how much the plan sets aside. In Balanced mode, for a C0 limited
+5★ from zero pity:
 
-| Certainty | Wishes | |
-|---|---:|---|
-| 50% | 80 | the 50/50 went your way |
-| 80% | 150 | Balanced funds a **Want** here |
-| 100% | 180 | deterministic — **Must** targets are planned here |
+| Band | Sets aside | Stretches to | |
+|---|---:|---:|---|
+| **Must** | 180 | — | the deterministic guarantee — no luck involved |
+| **Dream** | 155 | — | reaches the character on about 9 runs in 10 |
+| **Want** | 120 | 155 | tops up only from wishes nothing else claimed |
+| **Try** | 90 | — | hard pity for one 5★, then you walk away |
+| **Luxury** | 0 | 75 | holds nothing back; lives entirely on what is spare |
 
 The curve is deliberately not linear: half the time the 50/50 is won and the cost
 stops near 80, after which the second 5★ pushes everything toward the 180 ceiling.
 The tiers between 150 and 180 buy very little.
 
-*Interested* and *Luxury* never hold back wishes you already have — by definition
-they are for what is left over.
+Those figures are quantiles of the cost curve, not fixed numbers, so pity you have
+already banked and a constellation goal above C0 both move them. A **Try** is the
+exception: 90 is hard pity, and it is the same in every mode, because what luck
+decides there is not the price but the prize — about half the time the 5★ you force
+is somebody else, and a Try stops rather than chasing the guarantee.
+
+A **stretch** is only ever funded from wishes no other target needed, in priority
+order, so a Want fills before a Luxury sees anything. It never shrinks *safe to
+spend*: an opportunity is not a commitment, and adding a target takes it back.
+
+**Luxury** never holds back wishes you already have — by definition it is for what
+is left over.
 
 ### Forecasts forward, by date
 
@@ -105,7 +117,7 @@ is running right now.
 
 ### Keeps intent separate from mechanics
 
-A wishlist of four priorities (Must / Want / Interested / Luxury), constellation
+A wishlist of five priorities (Must / Dream / Want / Try / Luxury), constellation
 targets, reasons, notes, and pull rules you set *before* the banner arrives —
 while you are calm — instead of at 3am with 40 wishes left.
 

@@ -83,8 +83,20 @@ export function TargetCard({ plan, onOpen, onMoveUp, onMoveDown, index = 0 }: Pr
           </p>
         ) : (
           <div className="flex flex-wrap items-baseline gap-x-1.5">
-            <span className="num text-[15px] text-moon">{plan.reserved}</span>
-            <span className="text-[11.5px] text-moon-dim">of {plan.plannedCost} set aside</span>
+            {/* A stretch is shown apart from the reservation, never folded into
+                it: "155 of 120 set aside" would read as a mistake, and the two
+                numbers do not survive the same pressure. */}
+            {plan.plannedCost > 0 ? (
+              <>
+                <span className="num text-[15px] text-moon">{plan.reserved - plan.reservedStretch}</span>
+                <span className="text-[11.5px] text-moon-dim">of {plan.plannedCost} set aside</span>
+              </>
+            ) : (
+              <span className="text-[11.5px] text-moon-dim">Nothing held back</span>
+            )}
+            {plan.reservedStretch > 0 && (
+              <span className="num text-[12px] text-moon-muted">+{plan.reservedStretch} spare</span>
+            )}
             <span className="text-[11.5px] text-moon-faint">·</span>
             <span
               className="num text-[12px]"

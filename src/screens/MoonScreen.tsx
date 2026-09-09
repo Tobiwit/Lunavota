@@ -15,7 +15,7 @@ import { LogPullSheet } from '@/components/moon/LogPullSheet'
 import { ScenarioSheet } from '@/components/scenario/ScenarioSheet'
 import { TargetDetailSheet } from '@/components/wishlist/TargetDetailSheet'
 import { versionIncomeSummary } from '@/engine/forecast'
-import { PLANNING_MODE_LABEL } from '@/engine/planning'
+import { affordabilityLabel, PLANNING_MODE_LABEL } from '@/engine/planning'
 import { HARD_PITY } from '@/engine/wish'
 import { daysBetween, formatDay, relativeDays, today } from '@/lib/date'
 import { formatChance } from '@/lib/format'
@@ -115,6 +115,15 @@ export function MoonScreen() {
               <p className="mx-auto mt-2.5 max-w-[36ch] text-[13px] leading-relaxed text-moon-dim">
                 {spendSentence(budget, user.planningMode)}
               </p>
+              {/* Still safe to spend — a stretch is what a target would reach
+                  for, never something it is owed. Worth naming so the number
+                  above does not quietly move when one is added. */}
+              {budget.stretchedFromPool > 0 && (
+                <p className="mx-auto mt-1.5 max-w-[36ch] text-[12px] leading-relaxed text-moon-faint">
+                  <span className="num">{budget.stretchedFromPool}</span> of it would go further on targets already
+                  on your list, if you let it.
+                </p>
+              )}
             </>
           )}
         </div>
@@ -215,12 +224,21 @@ export function MoonScreen() {
                 </div>
 
                 <div className="mt-4">
-                  <AffordabilityBadge status={next.status} />
+                  <AffordabilityBadge status={next.status} label={affordabilityLabel(next)} />
                   {!next.timingUnknown && (
                     <p className="mt-1.5 text-[12px] text-moon-dim">
-                      <span className="num text-moon-muted">{next.reserved}</span> of{' '}
-                      <span className="num text-moon-muted">{next.plannedCost}</span> set aside ·{' '}
-                      <span className="num text-moon-muted">{formatChance(next.successChance)}</span> chance
+                      {next.plannedCost > 0 ? (
+                        <>
+                          <span className="num text-moon-muted">{next.reserved - next.reservedStretch}</span> of{' '}
+                          <span className="num text-moon-muted">{next.plannedCost}</span> set aside
+                        </>
+                      ) : (
+                        <>Nothing held back</>
+                      )}
+                      {next.reservedStretch > 0 && (
+                        <> · <span className="num text-moon-muted">+{next.reservedStretch}</span> spare</>
+                      )}{' '}
+                      · <span className="num text-moon-muted">{formatChance(next.successChance)}</span> chance
                     </p>
                   )}
                 </div>
@@ -407,7 +425,14 @@ function fundingSentence(plan: TargetPlan, now: string): string {
   const short = Math.max(0, plan.plannedCost - plan.reserved)
 
   if (plan.timingUnknown) {
-    return `No banner is expected for ${name} yet, so nothing is held back. They would cost about ${plan.plannedCost} wishes whenever they appear.`
+    // A Luxury reserves nothing, so quote what it would take rather than zero.
+    const cost = plan.plannedCost > 0 ? plan.plannedCost : plan.cost.stretch
+    return `No banner is expected for ${name} yet, so nothing is held back. They would cost about ${cost} wishes whenever they appear.`
+  }
+  if (plan.plannedCost === 0) {
+    return plan.reserved > 0
+      ? `Nothing is held back for ${name}, but ${plan.reserved} wishes are spare enough to reach for them.`
+      : `Nothing is held back for ${name}, and nothing is spare to reach with.`
   }
   if (plan.status === 'guaranteed') {
     return `You are fully funded. Even the worst possible run reaches ${name} at C${plan.target.constellationTarget}.`

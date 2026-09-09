@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { Sheet } from '@/components/ui/Sheet'
 import { CharacterAvatar } from './CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, PRIORITY_MEANING } from '@/components/ui/PriorityGlyph'
+import { PRIORITY_ORDER } from '@/engine/planning'
 import { SearchIcon } from '@/components/ui/icons'
 import { useStore } from '@/store/useStore'
 import { elementLabel } from '@/lib/assets'
@@ -15,7 +16,6 @@ import type { Character, Priority } from '@/types'
  * optional and lives in the detail sheet. This should take under ten seconds.
  */
 
-const PRIORITIES: Priority[] = ['must', 'want', 'interested', 'luxury']
 
 const STATUS_NOTE: Record<Character['releaseStatus'], string | undefined> = {
   released: undefined,
@@ -113,7 +113,7 @@ export function CharacterPicker({ open, onClose }: { open: boolean; onClose: () 
             </div>
 
             <div className="space-y-2.5">
-              {PRIORITIES.map((p) => (
+              {PRIORITY_ORDER.map((p) => (
                 <button
                   key={p}
                   type="button"

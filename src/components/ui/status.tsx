@@ -18,11 +18,13 @@ const TONE: Record<Affordability, { color: string; mark: string }> = {
 }
 
 export function AffordabilityBadge({
-  status, className, showLabel = true,
+  status, className, showLabel = true, label,
 }: {
   status: Affordability
   className?: string
   showLabel?: boolean
+  /** Overrides the status word, for a band the status alone would oversell. */
+  label?: string
 }) {
   const tone = TONE[status]
   return (
@@ -31,7 +33,7 @@ export function AffordabilityBadge({
       style={{ color: tone.color }}
     >
       <span aria-hidden className="text-[11px] leading-none">{tone.mark}</span>
-      {showLabel && <span>{AFFORDABILITY_LABEL[status]}</span>}
+      {showLabel && <span>{label ?? AFFORDABILITY_LABEL[status]}</span>}
     </span>
   )
 }

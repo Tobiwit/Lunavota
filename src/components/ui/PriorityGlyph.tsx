@@ -1,5 +1,8 @@
 import clsx from 'clsx'
 import type { Priority } from '@/types'
+import { PRIORITY_LABEL, PRIORITY_MEANING } from '@/engine/planning'
+
+export { PRIORITY_LABEL, PRIORITY_MEANING }
 
 /**
  * Priority as a moon phase.
@@ -8,32 +11,22 @@ import type { Priority } from '@/types'
  * site pairs it with the written word.
  */
 
-export const PRIORITY_LABEL: Record<Priority, string> = {
-  must: 'Must',
-  want: 'Want',
-  interested: 'Interested',
-  luxury: 'Luxury',
-}
-
-export const PRIORITY_MEANING: Record<Priority, string> = {
-  must: 'I would strongly regret missing them.',
-  want: 'I actively intend to obtain them.',
-  interested: 'Depends on kit, timing, teams or resources.',
-  luxury: 'Only worth pulling with resources to spare.',
-}
-
 /**
- * Fraction of the disc that is lit, matching ◉ ◕ ◑ ○.
+ * Fraction of the disc that is lit — a waning moon down the scale.
  *
- * Want sits at 0.66 rather than a literal 0.75: at 12px the extra sliver is the
- * only thing separating it from a full moon, and it has to survive that size.
+ * The steps are uneven on purpose. At 12px a literal 0.75 is indistinguishable
+ * from a full moon, and the gap between the last two has to stay readable, so
+ * the lit portion is spaced by what the eye can separate rather than by rank.
  */
-const FILL: Record<Priority, number> = { must: 1, want: 0.66, interested: 0.5, luxury: 0 }
+const FILL: Record<Priority, number> = {
+  must: 1, dream: 0.72, want: 0.5, try: 0.26, luxury: 0,
+}
 
 const ACCENT: Record<Priority, string> = {
   must: 'var(--frost)',
-  want: 'var(--lunar-blue)',
-  interested: 'var(--lunar-violet)',
+  dream: 'var(--lunar-blue)',
+  want: 'var(--lunar-violet)',
+  try: 'var(--moon-muted)',
   luxury: 'var(--moon-dim)',
 }
 
