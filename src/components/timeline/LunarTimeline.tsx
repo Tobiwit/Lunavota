@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import type { TimelineNode } from '@/engine/timeline'
-import { CharacterArt, CharacterSplash } from '@/components/character/CharacterArt'
+import { CharacterSplash } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge } from '@/components/ui/status'
 import { formatDay, formatRange } from '@/lib/date'
@@ -391,6 +391,10 @@ function OtherBannerRow({ node }: { node: TimelineNode }) {
   if (others.length === 0) return null
 
   const names = others.map((o) => o.character.displayName).join(' · ')
+  // Two characters take an edge each and meet in the middle; one keeps the
+  // right, where every planned banner puts its art.
+  const right = others[0]
+  const left = others[1]
 
   return (
     <div className="relative py-1.5">
@@ -405,41 +409,46 @@ function OtherBannerRow({ node }: { node: TimelineNode }) {
       </span>
 
       <div style={{ paddingLeft: 62 }}>
-        <div
-          className="flex items-center gap-3 rounded-2xl border border-[rgba(169,213,232,0.07)] bg-[rgba(8,12,22,0.35)] px-3.5"
-          style={{ height: OTHER_BANNER_HEIGHT }}
-        >
-          {/* Overlapped and desaturated: present, but not competing with a
-              portrait that has odds attached to it. */}
-          <span className="flex shrink-0 -space-x-3">
-            {others.slice(0, 3).map((o) => (
-              <CharacterArt
-                key={o.character.id}
-                character={o.character}
-                variant="thumb"
-                className="h-12 w-12 rounded-full border border-[rgba(9,13,24,0.9)] opacity-50 grayscale"
-              />
-            ))}
-          </span>
-
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] leading-tight text-moon-dim">{names}</span>
-            <span className="mt-1 block text-[11px] leading-tight text-moon-faint">
-              {node.endDate ? formatRange(node.date, node.endDate) : formatDay(node.date)}
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-tight text-moon-faint">
-              Not on your list
-              {others.length > 3 ? ` · +${others.length - 3} more` : ''}
-            </span>
-          </span>
-
-          {/* One figure, and only when a single name owns it - two characters
-              sharing a row do not share a probability. */}
-          {others.length === 1 && (
-            <span className="num shrink-0 text-[11.5px] text-moon-faint">
-              {formatChance(others[0].probability)}
-            </span>
+        {/* No panel behind it. The art dissolves into the page rather than into
+            a card, which is most of what separates this from a decision. */}
+        <div className="relative" style={{ height: OTHER_BANNER_HEIGHT }}>
+          {left && (
+            <CharacterSplash
+              character={left.character}
+              side="left"
+              fade={58}
+              muted
+              className="-top-2 bottom-0 left-0 w-[40%]"
+            />
           )}
+          <CharacterSplash
+            character={right.character}
+            side="right"
+            fade={58}
+            muted
+            className="-top-2 bottom-0 right-0 w-[40%]"
+          />
+
+          {/* Centred, unlike every planned card on this thread. The asymmetry is
+              doing work: it reads as a caption between two figures rather than
+              as a row of figures you are meant to act on. */}
+          <div className="relative flex h-full flex-col items-center justify-center px-6 text-center">
+            <p className="max-w-full truncate text-[15px] leading-tight text-moon-dim">{names}</p>
+            <p className="mt-1 text-[11px] leading-tight text-moon-faint">
+              {node.endDate ? formatRange(node.date, node.endDate) : formatDay(node.date)}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-tight text-moon-faint">
+              Not on your list
+              {/* One figure, and only when a single name owns it - two
+                  characters sharing a row do not share a probability. */}
+              {others.length === 1 && (
+                <> · <span className="num">{formatChance(right.probability)}</span></>
+              )}
+              {others.length > 2 && (
+                <> · <span className="num">+{others.length - 2}</span> more</>
+              )}
+            </p>
+          </div>
         </div>
       </div>
     </div>

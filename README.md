@@ -103,7 +103,11 @@ reaching *a* 5★ is not reaching *that* one — and a fully funded Try reads as
 "Funded", never "Guaranteed", because only its budget is certain.
 
 Banners nobody on the wishlist is pulling on still appear, at half the height of a
-planned one and a great deal quieter — without them a phase reads as empty when it
+planned one and a great deal quieter. They carry the same borderless splash
+treatment: two characters take an edge each and meet in the middle, one keeps the
+right, and the art dissolves into the page rather than into a card. `muted` drains
+colour without removing it — a fully grey figure reads as disabled, and these
+characters are perfectly real, just not on the plan — without them a phase reads as empty when it
 is merely not yours. Everyone slotted into the same version and phase shares one
 row, unknown phases grouping with each other; each character is placed once, at
 its strongest prediction, so a speculative name cannot appear in four phases at

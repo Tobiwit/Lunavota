@@ -137,12 +137,20 @@ export function CharacterSplash({
   className,
   side = 'right',
   fade = 52,
+  muted,
 }: {
   character: Character
   className?: string
   side?: 'left' | 'right'
   /** Where the art starts appearing, as a percentage across its own box. */
   fade?: number
+  /**
+   * Pushed further back, for art that is context rather than a decision.
+   *
+   * Colour is drained but not removed - a fully grey figure reads as disabled,
+   * and these characters are perfectly real, just not on the plan.
+   */
+  muted?: boolean
 }) {
   const accent = elementColor(character.element)
   const toText = side === 'right' ? '90deg' : '270deg'
@@ -151,7 +159,13 @@ export function CharacterSplash({
 
 
   return (
-    <div aria-hidden className={clsx('pointer-events-none absolute overflow-hidden', className)}>
+    <div
+      aria-hidden
+      className={clsx('pointer-events-none absolute overflow-hidden', className)}
+      // On the outer box, which carries no mask of its own: a filter on a masked
+      // element creates a containing block and moves the fade with it.
+      style={muted ? { opacity: 0.62, filter: 'saturate(0.5)' } : undefined}
+    >
       {/* Moonlight the figure stands in. */}
       <div
         className="absolute inset-0"
