@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import type { TimelineNode } from '@/engine/timeline'
-import { CharacterSplash } from '@/components/character/CharacterArt'
+import { CharacterArt, CharacterSplash } from '@/components/character/CharacterArt'
 import { PriorityGlyph, PRIORITY_LABEL, priorityAccent } from '@/components/ui/PriorityGlyph'
 import { AffordabilityBadge } from '@/components/ui/status'
 import { formatDay, formatRange } from '@/lib/date'
@@ -65,6 +65,8 @@ function NodeRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Timeli
       return <PhaseRow node={node} />
     case 'banner':
       return <BannerRow node={node} onSelect={onSelect} />
+    case 'other-banner':
+      return <OtherBannerRow node={node} />
     case 'group':
       return <GroupRow node={node} onSelect={onSelect} />
     default:
@@ -361,6 +363,84 @@ function BannerRow({ node, onSelect }: { node: TimelineNode; onSelect?: (n: Time
           </p>
         </div>
       </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A banner nobody here is pulling on.
+ *
+ * Half the height of a planned banner and a great deal quieter, because it
+ * answers a smaller question: not "can I afford this" but "what else is
+ * running". Everyone sharing a phase shares the row, so a busy patch costs one
+ * line rather than three.
+ *
+ * The height is set rather than left to the content. Proportion is the whole
+ * point of this row - it is how the eye sorts a decision from context before
+ * reading a word - and content-sized cards would drift with every name length.
+ *
+ * Deliberately not a button. Every other card on this thread opens something,
+ * and a row that looks tappable but is only context would teach the wrong
+ * lesson about which of these are decisions.
+ */
+const OTHER_BANNER_HEIGHT = 104
+
+function OtherBannerRow({ node }: { node: TimelineNode }) {
+  const others = node.others ?? []
+  if (others.length === 0) return null
+
+  const names = others.map((o) => o.character.displayName).join(' · ')
+
+  return (
+    <div className="relative py-1.5">
+      <span aria-hidden className="absolute z-10" style={{ left: THREAD_X - 4.5, top: 54 }}>
+        <svg width="9" height="9" viewBox="0 0 9 9">
+          <circle cx="4.5" cy="4.5" r="3.4" fill="rgba(9,13,24,0.96)" />
+          <circle
+            cx="4.5" cy="4.5" r="3.4"
+            fill="none" stroke="var(--moon-dim)" strokeOpacity="0.5" strokeWidth="0.9"
+          />
+        </svg>
+      </span>
+
+      <div style={{ paddingLeft: 62 }}>
+        <div
+          className="flex items-center gap-3 rounded-2xl border border-[rgba(169,213,232,0.07)] bg-[rgba(8,12,22,0.35)] px-3.5"
+          style={{ height: OTHER_BANNER_HEIGHT }}
+        >
+          {/* Overlapped and desaturated: present, but not competing with a
+              portrait that has odds attached to it. */}
+          <span className="flex shrink-0 -space-x-3">
+            {others.slice(0, 3).map((o) => (
+              <CharacterArt
+                key={o.character.id}
+                character={o.character}
+                variant="thumb"
+                className="h-12 w-12 rounded-full border border-[rgba(9,13,24,0.9)] opacity-50 grayscale"
+              />
+            ))}
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] leading-tight text-moon-dim">{names}</span>
+            <span className="mt-1 block text-[11px] leading-tight text-moon-faint">
+              {node.endDate ? formatRange(node.date, node.endDate) : formatDay(node.date)}
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-tight text-moon-faint">
+              Not on your list
+              {others.length > 3 ? ` · +${others.length - 3} more` : ''}
+            </span>
+          </span>
+
+          {/* One figure, and only when a single name owns it - two characters
+              sharing a row do not share a probability. */}
+          {others.length === 1 && (
+            <span className="num shrink-0 text-[11.5px] text-moon-faint">
+              {formatChance(others[0].probability)}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )

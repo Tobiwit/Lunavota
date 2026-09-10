@@ -102,6 +102,14 @@ budgets to the first 5★, won or lost. Its odds are discounted by the 50/50, si
 reaching *a* 5★ is not reaching *that* one — and a fully funded Try reads as
 "Funded", never "Guaranteed", because only its budget is certain.
 
+Banners nobody on the wishlist is pulling on still appear, at half the height of a
+planned one and a great deal quieter — without them a phase reads as empty when it
+is merely not yours. Everyone slotted into the same version and phase shares one
+row, unknown phases grouping with each other; each character is placed once, at
+its strongest prediction, so a speculative name cannot appear in four phases at
+once. The height is fixed rather than content-sized, because the proportion is how
+the eye sorts a decision from context before reading a word.
+
 Cards show what this buys — **set aside**, **needs**, and the resulting **chance** —
 rather than the banner-timing confidence, which is a different question and is
 carried by the probability ring around each portrait.

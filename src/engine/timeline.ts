@@ -1,5 +1,17 @@
-import type { Budget, ForecastCurve, ForecastPoint, GameVersion, IncomeKind, TargetPlan } from '@/types'
+import type {
+  BannerPhase,
+  BannerPrediction,
+  Budget,
+  Character,
+  ForecastCurve,
+  ForecastPoint,
+  GameVersion,
+  IncomeKind,
+  PredictionSource,
+  TargetPlan,
+} from '@/types'
 import { addDays, daysBetween, today } from '@/lib/date'
+import { CREDIBLE_THRESHOLD, phaseWindow } from './predictions'
 import { FORECAST_HORIZON_DAYS } from '@/data/config'
 
 /**
@@ -16,6 +28,7 @@ export type TimelineNodeKind =
   | 'version'
   | 'phase'
   | 'banner'
+  | 'other-banner'
   | 'reward'
   | 'group'
 
@@ -37,6 +50,8 @@ export interface TimelineNode {
   versionId?: string
   version?: GameVersion
   plan?: TargetPlan
+  /** Characters expected in this slot who are not on the wishlist. */
+  others?: OtherBanner[]
   incomeKind?: IncomeKind
   /** Constituent income for the "why" breakdown. */
   breakdown?: ForecastPoint[]
@@ -47,8 +62,17 @@ export interface TimelineNode {
   versionLength?: number
 }
 
+/** One character expected on a banner the player has no plans for. */
+export interface OtherBanner {
+  character: Character
+  /** 0..1 confidence in this placement. */
+  probability: number
+  sourceType: PredictionSource
+}
+
 const KIND_SORT: Record<TimelineNodeKind, number> = {
-  today: 0, 'live-version': 1, version: 2, phase: 3, banner: 4, group: 5, reward: 6,
+  today: 0, 'live-version': 1, version: 2, phase: 3,
+  banner: 4, 'other-banner': 5, group: 6, reward: 7,
 }
 
 /**
@@ -77,6 +101,9 @@ export interface TimelineInput {
   versions: GameVersion[]
   curve: ForecastCurve
   budget: Budget
+  /** Everything the catalogue expects to run, wishlist or not. */
+  predictions?: BannerPrediction[]
+  characters?: Map<string, Character>
   horizonDays?: number
   /** How far back completed versions remain visible. */
   pastDays?: number
@@ -185,6 +212,26 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
     })
   }
 
+  // -- Level 2b: banners that are not yours ------------------------------
+  //
+  // Context, not a decision. Without them a phase reads as empty when it is
+  // merely not yours, and "nothing is running" is a different claim from
+  // "nothing you want is running". Everyone slotted into the same phase shares
+  // one row: at this weight the useful fact is what is running, not who.
+  for (const slot of otherBannerSlots(input, now)) {
+    if (!inRange(slot.date)) continue
+    push({
+      id: `others-${slot.versionId}-${slot.phase}`,
+      kind: 'other-banner',
+      date: slot.date,
+      endDate: slot.endDate,
+      title: slot.others.map((o) => o.character.displayName).join(' · '),
+      showBalance: false,
+      versionId: slot.versionId,
+      others: slot.others,
+    })
+  }
+
   // -- Level 4: standalone rewards ---------------------------------------
   // One node each. These are the resets a player actually plans around, so
   // collapsing four of them into "Spiral Abyss +3 more" hides the useful part -
@@ -222,6 +269,63 @@ export function buildTimeline(input: TimelineInput): TimelineNode[] {
   })
 }
 
+/**
+ * Everyone the catalogue expects to run, minus everyone already on the wishlist,
+ * gathered into one entry per version and phase.
+ *
+ * A character usually carries several competing predictions. Only the strongest
+ * is placed, or a speculative name would appear in four phases at once and the
+ * faint layer would drown the plan it is meant to sit behind. Anything below the
+ * credible threshold is dropped for the same reason.
+ */
+function otherBannerSlots(
+  input: TimelineInput,
+  now: string,
+): { versionId: string; phase: BannerPhase; date: string; endDate: string; others: OtherBanner[] }[] {
+  const { predictions, characters, versions, budget } = input
+  if (!predictions || !characters) return []
+
+  const versionById = new Map(versions.map((v) => [v.id, v]))
+  const onWishlist = new Set(budget.plans.map((p) => p.target.characterId))
+
+  const strongest = new Map<string, BannerPrediction>()
+  for (const p of predictions) {
+    if (p.publishState !== 'published') continue
+    if (p.probability < CREDIBLE_THRESHOLD) continue
+    if (onWishlist.has(p.characterId)) continue
+    if (!characters.has(p.characterId)) continue
+    if (!versionById.has(p.versionId)) continue
+
+    const held = strongest.get(p.characterId)
+    if (!held || p.probability > held.probability) strongest.set(p.characterId, p)
+  }
+
+  const slots = new Map<string, ReturnType<typeof otherBannerSlots>[number]>()
+  for (const p of strongest.values()) {
+    const version = versionById.get(p.versionId)!
+    if (version.endDate < now) continue
+
+    const key = `${p.versionId}::${p.phase}`
+    const existing = slots.get(key)
+    const entry: OtherBanner = {
+      character: characters.get(p.characterId)!,
+      probability: p.probability,
+      sourceType: p.sourceType,
+    }
+    if (existing) {
+      existing.others.push(entry)
+      continue
+    }
+    const w = phaseWindow(version, p.phase)
+    slots.set(key, { versionId: p.versionId, phase: p.phase, ...w, others: [entry] })
+  }
+
+  for (const slot of slots.values()) {
+    slot.others.sort((a, b) => b.probability - a.probability)
+  }
+  return [...slots.values()]
+}
+
 /** Version-content points overlapping a window, ordered by date. */
 function contentWithin(points: ForecastPoint[], from: string, to: string): ForecastPoint[] {
   return points
@@ -249,7 +353,12 @@ export function filterTimeline(nodes: TimelineNode[], filter: TimelineFilter): T
     if (n.kind === 'today') return true
     switch (filter) {
       case 'characters':
-        return isVersionHeader(n) || n.kind === 'banner' || n.kind === 'phase'
+        return (
+          isVersionHeader(n) ||
+          n.kind === 'banner' ||
+          n.kind === 'other-banner' ||
+          n.kind === 'phase'
+        )
       case 'rewards':
         return isVersionHeader(n) || n.kind === 'reward' || n.kind === 'group'
       case 'versions':

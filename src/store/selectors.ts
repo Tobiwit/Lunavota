@@ -61,11 +61,13 @@ export function useBudget(overrideUser?: UserWishState): Budget {
 
 export function useTimeline() {
   const versions = useStore((s) => s.versions)
+  const predictions = useStore((s) => s.predictions)
+  const characters = useCharacterMap()
   const curve = useForecast()
   const budget = useBudget()
   return useMemo(
-    () => buildTimeline({ now: today(), versions, curve, budget }),
-    [versions, curve, budget],
+    () => buildTimeline({ now: today(), versions, curve, budget, predictions, characters }),
+    [versions, curve, budget, predictions, characters],
   )
 }
 
